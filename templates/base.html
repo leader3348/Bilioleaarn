@@ -1,0 +1,33 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}BiblioLearn{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'pages/style.css' %}">
+</head>
+<body>
+  <header class="site-header">
+    <div class="header-inner">
+      <a class="brand" href="{% url 'pages:accueil' %}">
+        <span class="brand-mark" aria-hidden="true">BL</span>
+        <span class="brand-copy"><strong>BiblioLearn</strong><small>Lire, apprendre, explorer</small></span>
+      </a>
+      <nav aria-label="Navigation principale">
+      <a href="{% url 'pages:accueil' %}">Accueil</a>
+      <a href="{% url 'pages:catalogue' %}">Catalogue</a>
+      <a href="{% url 'pages:maisons' %}">Maisons</a>
+      <a href="{% url 'pages:contact' %}">Contact</a>
+      </nav>
+    </div>
+  </header>
+  <main class="site-main">
+    {% block content %}{% endblock %}
+  </main>
+  <footer class="site-footer">
+    <p><strong>BiblioLearn</strong> <span>·</span> Omar</p>
+    <small>Un espace pour les lecteurs et les curieux.</small>
+  </footer>
+</body>
+</html>

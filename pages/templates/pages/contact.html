@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Contact - BiblioLearn{% endblock %}
+{% block content %}
+<h2>Contact</h2>
+{% if nom_recu %}
+  <p class="succes">Merci {{ nom_recu }}, votre message a bien été reçu</p>
+{% endif %}
+<form method="post">
+  {% csrf_token %}
+  {{ form.as_p }}
+  <button type="submit">Envoyer</button>
+</form>
+{% endblock %}

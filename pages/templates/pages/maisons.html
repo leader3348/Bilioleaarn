@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Maisons - BiblioLearn{% endblock %}
+{% block content %}
+<h2>Les grandes maisons de Westeros</h2>
+<p>Un petit aperçu de l'univers de <em>A Song of Ice and Fire</em>.</p>
+<div class="cartes">
+  {% for m in maisons %}
+  <article class="carte">
+    <h3>Maison {{ m.nom }}</h3>
+    <p><em>« {{ m.devise }} »</em></p>
+    <p>Siège : {{ m.siege }}<br>Région : {{ m.region }}</p>
+  </article>
+  {% endfor %}
+</div>
+{% endblock %}

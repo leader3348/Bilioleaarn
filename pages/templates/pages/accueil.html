@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}Accueil - BiblioLearn{% endblock %}
+{% block content %}
+<section class="hero">
+  <div class="hero-copy">
+    <p class="eyebrow">LA BIBLIOTHÈQUE À PORTÉE DE MAIN</p>
+    <h2>Bienvenue dans un monde de <span>nouvelles histoires.</span></h2>
+    <p>Parcourez des sagas inoubliables, découvrez vos prochaines lectures et apprenez à votre rythme.</p>
+    <div class="hero-actions">
+      <a class="button-link" href="{% url 'pages:catalogue' %}">Explorer le catalogue <span aria-hidden="true">→</span></a>
+    </div>
+  </div>
+  <aside class="hero-note">
+    <span class="note-icon" aria-hidden="true">✦</span>
+    <p class="eyebrow">VOTRE PROCHAINE AVENTURE</p>
+    <p class="hero-quote">« Une histoire peut ouvrir mille portes. »</p>
+    <span class="note-rule"></span>
+    <p class="note-caption">Choisissez un livre. Le voyage commence.</p>
+  </aside>
+</section>
+
+<section class="stats-row" aria-label="La bibliothèque en chiffres">
+  <div><strong>{{ nb_ressources }}</strong><span>livres au catalogue</span></div>
+  <div><strong>{{ modules|length }}</strong><span>espaces à découvrir</span></div>
+  <div><strong>100%</strong><span>envie de lire</span></div>
+</section>
+
+<section class="content-section">
+  <div class="section-heading">
+    <div><p class="eyebrow">À DÉCOUVRIR</p><h2>Les nouveautés de la bibliothèque</h2></div>
+    <a class="text-link" href="{% url 'pages:catalogue' %}">Tout le catalogue <span aria-hidden="true">→</span></a>
+  </div>
+  <div class="book-grid">
+    {% for livre in nouveautes %}
+    <article class="book-card">
+      <div class="book-cover"><span>{{ livre.titre|slice:":1" }}</span><small>{{ livre.serie }}</small></div>
+      <div class="book-info">
+        <p class="book-series">{{ livre.serie }} · Tome {{ livre.tome }}</p>
+        <h3>{{ livre.titre }}</h3>
+        <p class="book-author">{{ livre.auteur }} <span>·</span> {{ livre.annee }}</p>
+      </div>
+    </article>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="content-section modules-section">
+  <div class="section-heading">
+    <div><p class="eyebrow">BIBLIOLEARN</p><h2>Tout pour nourrir votre curiosité</h2></div>
+  </div>
+  <div class="module-grid">
+    {% for module in modules %}
+    <article class="module-card"><span class="module-number">0{{ forloop.counter }}</span><h3>{{ module }}</h3></article>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}
