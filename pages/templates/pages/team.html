@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}L'équipe — Mnémosyne{% endblock %}
+{% block content %}
+<section class="workspace-heading">
+  <div><p class="eyebrow">VOTRE BIBLIOTHÈQUE</p><h1>Gérer l'équipe</h1><p>{{ membership.library.name }} · {{ members|length }} membre{% if members|length != 1 %}s{% endif %}</p></div>
+  <a class="text-link" href="{% url 'pages:dashboard' %}">Retour à mon espace →</a>
+</section>
+{% if invite_url %}
+<section class="invite-share">
+  <div><strong>L'invitation est prête à être partagée.</strong><p>Ce lien expire dans 7 jours et ne peut être utilisé qu'une seule fois.</p></div>
+  <label for="invite-link">Lien d'invitation</label>
+  <input id="invite-link" type="url" readonly value="{{ invite_url }}">
+</section>
+{% endif %}
+<section class="team-grid">
+  <div class="auth-card">
+    <p class="eyebrow">AGRANDIR L'ÉQUIPE</p>
+    <h2>Inviter un membre</h2>
+    <p class="form-intro">Le lien d'invitation est privé : partagez-le directement avec la personne.</p>
+    <form method="post" action="{% url 'pages:inviter_membre' %}">
+      {% csrf_token %}
+      {{ form.as_p }}
+      <button type="submit">Créer une invitation</button>
+    </form>
+  </div>
+  <div>
+    <div class="section-heading"><div><p class="eyebrow">ACCÈS AU WORKSPACE</p><h2>Membres</h2></div></div>
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead><tr><th>Compte</th><th>Rôle</th><th>Depuis</th></tr></thead>
+        <tbody>
+        {% for member in members %}
+          <tr><td><strong>{{ member.user.get_username }}</strong><small>{{ member.user.email }}</small></td><td>{{ member.get_role_display }}</td><td>{{ member.joined_at|date:"j M Y" }}</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+<section class="content-section">
+  <div class="section-heading"><div><p class="eyebrow">EN ATTENTE</p><h2>Invitations en cours</h2></div></div>
+  <div class="table-wrap">
+    <table class="data-table">
+      <thead><tr><th>E-mail</th><th>Rôle proposé</th><th>Créée le</th><th>État</th></tr></thead>
+      <tbody>
+      {% for invite in invitations %}
+        <tr><td>{{ invite.email }}</td><td>{{ invite.get_role_display }}</td><td>{{ invite.created_at|date:"j M Y" }}</td><td>{% if invite.is_expired %}Expirée{% else %}En attente{% endif %}</td></tr>
+      {% empty %}
+        <tr><td colspan="4" class="table-empty">Aucune invitation en attente.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

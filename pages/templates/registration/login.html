@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Connexion — Mnémosyne{% endblock %}
+{% block content %}
+<section class="auth-layout single-auth">
+  <div class="auth-intro">
+    <p class="eyebrow">RAVI DE VOUS REVOIR</p>
+    <h1>Retrouvez votre bibliothèque.</h1>
+    <p>Connectez-vous pour suivre les emprunts et retrouver votre espace de travail.</p>
+  </div>
+  <div class="auth-card">
+    <h2>Connexion</h2>
+    <form method="post">
+      {% csrf_token %}
+      {% if form.non_field_errors %}<div class="form-errors">{{ form.non_field_errors }}</div>{% endif %}
+      <p><label for="{{ form.username.id_for_label }}">Nom d'utilisateur</label>{{ form.username }}{{ form.username.errors }}</p>
+      <p><label for="{{ form.password.id_for_label }}">Mot de passe</label>{{ form.password }}{{ form.password.errors }}</p>
+      {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
+      <button type="submit">Se connecter</button>
+    </form>
+    <p class="auth-switch">Pas encore de compte ? <a href="{% url 'pages:inscription' %}">Créer une bibliothèque</a></p>
+  </div>
+</section>
+{% endblock %}

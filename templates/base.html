@@ -4,30 +4,59 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}BiblioLearn{% endblock %}</title>
+  <meta name="theme-color" content="#281a19">
+  <meta name="description" content="Mnémosyne — bibliothèque des mondes, cabinet des livres et refuge des esprits curieux.">
+  <title>{% block title %}Mnémosyne — Cabinet des livres{% endblock %}</title>
+  <link rel="preconnect" href="https://covers.openlibrary.org" crossorigin>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{% static 'pages/style.css' %}">
+  <script src="{% static 'pages/site.js' %}" defer></script>
 </head>
 <body>
   <header class="site-header">
     <div class="header-inner">
       <a class="brand" href="{% url 'pages:accueil' %}">
-        <span class="brand-mark" aria-hidden="true">BL</span>
-        <span class="brand-copy"><strong>BiblioLearn</strong><small>Lire, apprendre, explorer</small></span>
+        <span class="brand-mark" aria-hidden="true">M</span>
+        <span class="brand-copy"><strong>Mnémosyne</strong><small>Cabinet des livres · Depuis toujours</small></span>
       </a>
       <nav aria-label="Navigation principale">
-      <a href="{% url 'pages:accueil' %}">Accueil</a>
-      <a href="{% url 'pages:catalogue' %}">Catalogue</a>
-      <a href="{% url 'pages:maisons' %}">Maisons</a>
+      <a href="{% url 'pages:accueil' %}">La bibliothèque</a>
+      <a href="{% url 'pages:catalogue' %}">Les rayons</a>
+      {% if user.is_authenticated %}
+      <a href="{% url 'pages:dashboard' %}">Mon espace</a>
+      {% with membership=user.library_memberships.first %}{% if membership and membership.role != "member" %}<a href="{% url 'pages:team' %}">Équipe</a>{% endif %}{% endwith %}
+      <a href="{% url 'pages:billing' %}">Abonnement</a>
+      <form class="nav-form" method="post" action="{% url 'pages:deconnexion' %}">
+        {% csrf_token %}
+        <button class="nav-button" type="submit">Déconnexion</button>
+      </form>
+      {% else %}
+      <a href="{% url 'pages:connexion' %}">Connexion</a>
+      <a class="nav-cta" href="{% url 'pages:inscription' %}">Prendre sa clef</a>
+      {% endif %}
       <a href="{% url 'pages:contact' %}">Contact</a>
       </nav>
     </div>
   </header>
   <main class="site-main">
+    {% if messages %}
+    <div class="messages" role="status">
+      {% for message in messages %}
+      <p class="message message-{{ message.tags }}">{{ message }}</p>
+      {% endfor %}
+    </div>
+    {% endif %}
     {% block content %}{% endblock %}
   </main>
   <footer class="site-footer">
-    <p><strong>BiblioLearn</strong> <span>·</span> Omar</p>
-    <small>Un espace pour les lecteurs et les curieux.</small>
+    <div class="footer-inner">
+      <a class="brand footer-brand" href="{% url 'pages:accueil' %}"><span class="brand-mark" aria-hidden="true">M</span><span class="brand-copy"><strong>Mnémosyne</strong><small>Le souvenir des histoires.</small></span></a>
+      <p>Un cabinet de lecture inspiré des anciennes bibliothèques, pour les esprits curieux et les mondes sans fin.</p>
+      <nav aria-label="Liens de pied de page"><a href="{% url 'pages:catalogue' %}">Les rayons</a><a href="{% url 'pages:contact' %}">Nous écrire</a></nav>
+    </div>
+    <div class="footer-bottom"><span>© {% now "Y" %} Mnémosyne <span class="footer-divider">·</span> Omar</span><span>« Connais-toi toi-même » <span class="footer-star">✦</span></span></div>
   </footer>
 </body>
 </html>

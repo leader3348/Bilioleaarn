@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Abonnement — Mnémosyne{% endblock %}
+{% block content %}
+<section class="catalogue-heading">
+  <p class="eyebrow">FACTURATION</p>
+  <h2>Un abonnement simple pour votre bibliothèque.</h2>
+  <p>Votre espace <strong>{{ membership.library.name }}</strong> reste privé. Gérez votre abonnement ici, sans interrompre le travail de votre équipe.</p>
+</section>
+{% if request.GET.success %}<p class="message message-success">Paiement reçu. Votre abonnement sera activé dès la confirmation sécurisée de Stripe.</p>{% endif %}
+{% if request.GET.canceled %}<p class="message message-info">Paiement annulé. Votre essai continue jusqu'à sa date de fin.</p>{% endif %}
+<section class="billing-card">
+  <div class="billing-card-heading">
+    <div><p class="eyebrow">VOTRE OFFRE</p><h2>Bibliothèque</h2></div>
+    <span class="billing-status status-{{ membership.library.subscription_status }}">{{ membership.library.subscription_status|title }}</span>
+  </div>
+  {% if membership.library.subscription_status == "trialing" and membership.library.trial_ends_at %}
+  <p>Essai gratuit jusqu'au <strong>{{ membership.library.trial_ends_at|date:"j F Y à H:i" }}</strong>.</p>
+  {% elif membership.library.subscription_status == "active" %}
+  <p>Votre abonnement est actif. Les factures et moyens de paiement se gèrent dans le portail sécurisé Stripe.</p>
+  {% elif membership.library.subscription_status == "past_due" %}
+  <p>Le dernier paiement a échoué. Mettez à jour votre moyen de paiement pour conserver l'accès à votre bibliothèque.</p>
+  {% else %}
+  <p>Votre abonnement n'est pas actif. Choisissez un abonnement pour continuer à gérer les emprunts et l'inventaire.</p>
+  {% endif %}
+  <ul class="billing-benefits">
+    <li>Un espace indépendant pour votre bibliothèque</li>
+    <li>Catalogue, inventaire et suivi des emprunts</li>
+    <li>Gestion des comptes et des rôles</li>
+    <li>14 jours d'essai gratuit à l'inscription</li>
+  </ul>
+  {% if not is_owner %}
+    <p class="billing-note">Seul le propriétaire de la bibliothèque peut gérer le paiement{% if owner %}. Contactez {{ owner.user.get_username }}{% endif %}.</p>
+  {% elif not stripe_configured %}
+    <p class="billing-note">Stripe n'est pas encore configuré. Le propriétaire du site doit renseigner <code>STRIPE_SECRET_KEY</code> et <code>STRIPE_PRICE_ID</code>.</p>
+  {% elif membership.library.stripe_customer_id %}
+    <form method="post" action="{% url 'pages:portail_facturation' %}">{% csrf_token %}<button type="submit">Gérer mon abonnement</button></form>
+  {% else %}
+    <form method="post" action="{% url 'pages:creer_checkout' %}">{% csrf_token %}<button type="submit">S'abonner avec Stripe</button></form>
+  {% endif %}
+  <p class="billing-note">Paiement traité par Stripe. Mnémosyne ne stocke jamais les données de carte bancaire.</p>
+</section>
+{% endblock %}

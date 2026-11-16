@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Prendre sa clef — Mnémosyne{% endblock %}
+{% block content %}
+<section class="auth-layout">
+  <div class="auth-intro">
+    <p class="eyebrow">14 JOURS D'ESSAI GRATUIT</p>
+    <h1>Donnez vie à votre bibliothèque.</h1>
+    <p>Créez un espace privé pour votre équipe, explorez un catalogue fantasy de départ et suivez vos premiers emprunts.</p>
+    <ul class="billing-benefits"><li>Votre espace est séparé des autres bibliothèques</li><li>Pas de carte bancaire pour démarrer</li><li>Un catalogue de sagas prêt à explorer</li></ul>
+  </div>
+  <div class="auth-card">
+    <h2>Créer un compte</h2>
+    <p class="form-intro">Le compte créé sera propriétaire de la bibliothèque.</p>
+    <form method="post">
+      {% csrf_token %}
+      {{ form.as_p }}
+      <button type="submit">Créer ma bibliothèque</button>
+    </form>
+    <p class="auth-switch">Déjà inscrit·e ? <a href="{% url 'pages:connexion' %}">Se connecter</a></p>
+  </div>
+</section>
+{% endblock %}

@@ -1,44 +1,58 @@
 {% extends "base.html" %}
-{% block title %}Accueil - BiblioLearn{% endblock %}
+{% load static %}
+{% block title %}La bibliothèque — Mnémosyne{% endblock %}
 {% block content %}
 <section class="hero">
   <div class="hero-copy">
-    <p class="eyebrow">LA BIBLIOTHÈQUE À PORTÉE DE MAIN</p>
-    <h2>Bienvenue dans un monde de <span>nouvelles histoires.</span></h2>
-    <p>Parcourez des sagas inoubliables, découvrez vos prochaines lectures et apprenez à votre rythme.</p>
+    <p class="eyebrow"><span class="eyebrow-mark"></span> LA BIBLIOTHÈQUE FANTASY PREND VIE</p>
+    <h2>Les mondes imaginaires. <span>Tout à leur place.</span></h2>
+    <p>Le repaire élégant pour organiser votre bibliothèque, faire circuler vos livres et donner envie de repartir à l'aventure.</p>
     <div class="hero-actions">
-      <a class="button-link" href="{% url 'pages:catalogue' %}">Explorer le catalogue <span aria-hidden="true">→</span></a>
+      <a class="button-link" href="{% url 'pages:inscription' %}">Ouvrir mon espace <span aria-hidden="true">↗</span></a>
+      <a class="text-link hero-secondary" href="{% url 'pages:catalogue' %}">Explorer les histoires <span aria-hidden="true">→</span></a>
     </div>
+    <div class="hero-social-proof"><span class="avatar-stack" aria-hidden="true"><i>F</i><i>✦</i><i>B</i></span><span>Votre collection commence avec <strong>{{ nb_ressources }} livres</strong></span></div>
   </div>
-  <aside class="hero-note">
-    <span class="note-icon" aria-hidden="true">✦</span>
-    <p class="eyebrow">VOTRE PROCHAINE AVENTURE</p>
-    <p class="hero-quote">« Une histoire peut ouvrir mille portes. »</p>
-    <span class="note-rule"></span>
-    <p class="note-caption">Choisissez un livre. Le voyage commence.</p>
-  </aside>
+  <div class="hero-art" aria-label="Quelques couvertures du catalogue">
+    {% for livre in nouveautes|slice:":3" %}
+    <div class="hero-book hero-book-{{ forloop.counter }}">
+      <img src="{{ livre.cover_url }}" data-fallback="{% static 'pages/images/book-cover-placeholder.svg' %}" alt="Couverture de {{ livre.title }}" loading="lazy" decoding="async" referrerpolicy="no-referrer">
+      <span class="hero-book-label">{{ livre.series }}</span>
+    </div>
+    {% endfor %}
+    <div class="hero-sticker"><span>14</span><small>JOURS<br>GRATUITS</small></div>
+    <div class="hero-orbit hero-orbit-one"></div>
+    <div class="hero-orbit hero-orbit-two"></div>
+  </div>
 </section>
 
 <section class="stats-row" aria-label="La bibliothèque en chiffres">
-  <div><strong>{{ nb_ressources }}</strong><span>livres au catalogue</span></div>
-  <div><strong>{{ modules|length }}</strong><span>espaces à découvrir</span></div>
-  <div><strong>100%</strong><span>envie de lire</span></div>
+  <div><strong>{{ nb_ressources }}<small>+</small></strong><span>couvertures à découvrir</span></div>
+  <div><strong>{{ modules|length }}</strong><span>outils pour votre équipe</span></div>
+  <div><strong>14<small> j</small></strong><span>pour essayer, sans pression</span></div>
 </section>
 
 <section class="content-section">
   <div class="section-heading">
-    <div><p class="eyebrow">À DÉCOUVRIR</p><h2>Les nouveautés de la bibliothèque</h2></div>
-    <a class="text-link" href="{% url 'pages:catalogue' %}">Tout le catalogue <span aria-hidden="true">→</span></a>
+    <div><p class="eyebrow">LE COIN DES INCONTOURNABLES</p><h2>Une étagère pleine de possibles</h2></div>
+    <a class="text-link" href="{% url 'pages:catalogue' %}">Voir toute la collection <span aria-hidden="true">↗</span></a>
   </div>
   <div class="book-grid">
     {% for livre in nouveautes %}
     <article class="book-card">
-      <div class="book-cover"><span>{{ livre.titre|slice:":1" }}</span><small>{{ livre.serie }}</small></div>
-      <div class="book-info">
-        <p class="book-series">{{ livre.serie }} · Tome {{ livre.tome }}</p>
-        <h3>{{ livre.titre }}</h3>
-        <p class="book-author">{{ livre.auteur }} <span>·</span> {{ livre.annee }}</p>
+      <a class="book-card-link" href="{% url 'pages:fiche_livre' livre.id %}" aria-label="Découvrir {{ livre.title }}">
+      <div class="book-cover">
+        <img src="{{ livre.cover_url }}" data-fallback="{% static 'pages/images/book-cover-placeholder.svg' %}" alt="Couverture de {{ livre.title }}" loading="lazy" decoding="async" referrerpolicy="no-referrer">
+        <span class="cover-ornament" aria-hidden="true">✦</span>
+        <small>{{ livre.series }}</small>
       </div>
+      <div class="book-info">
+        <p class="book-series">{{ livre.series }} · Tome {{ livre.volume }}</p>
+        <h3>{{ livre.title }}</h3>
+        <p class="book-author">{{ livre.author }}{% if livre.published_year %} <span>·</span> {{ livre.published_year }}{% endif %}</p>
+      </div>
+      </a>
+      <a class="detail-link home-detail-link" href="{% url 'pages:fiche_livre' livre.id %}">Feuilleter <span aria-hidden="true">↗</span></a>
     </article>
     {% endfor %}
   </div>
@@ -46,12 +60,16 @@
 
 <section class="content-section modules-section">
   <div class="section-heading">
-    <div><p class="eyebrow">BIBLIOLEARN</p><h2>Tout pour nourrir votre curiosité</h2></div>
+    <div><p class="eyebrow">UN PEU DE MAGIE, BEAUCOUP D'ORDRE</p><h2>Votre bibliothèque, à votre façon</h2></div>
   </div>
   <div class="module-grid">
     {% for module in modules %}
-    <article class="module-card"><span class="module-number">0{{ forloop.counter }}</span><h3>{{ module }}</h3></article>
+    <article class="module-card"><span class="module-number">0{{ forloop.counter }}</span><span class="module-spark" aria-hidden="true">{% cycle "✦" "◈" "⌘" "↗" %}</span><h3>{{ module }}</h3><span class="module-arrow" aria-hidden="true">↗</span></article>
     {% endfor %}
   </div>
+</section>
+<section class="closing-cta">
+  <div><p class="eyebrow">À VOUS D'ÉCRIRE LA SUITE</p><h2>Une bonne histoire commence par un bel espace.</h2><p>Créez votre bibliothèque et invitez votre équipe à découvrir les 40 premiers livres.</p></div>
+  <a class="button-link" href="{% url 'pages:inscription' %}">C'est parti <span aria-hidden="true">↗</span></a>
 </section>
 {% endblock %}

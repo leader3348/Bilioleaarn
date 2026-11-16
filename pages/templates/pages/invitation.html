@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Invitation — Mnémosyne{% endblock %}
+{% block content %}
+<section class="auth-layout single-auth">
+  <div class="auth-intro">
+    <p class="eyebrow">INVITATION À REJOINDRE</p>
+    {% if expired %}
+      <h1>Ce lien n'est plus valide.</h1>
+      <p>Les invitations expirent après 7 jours. Demandez à l'équipe de votre bibliothèque de vous en envoyer une nouvelle.</p>
+    {% elif email_mismatch %}
+      <h1>Utilisez l'adresse invitée.</h1>
+      <p>Cette invitation est réservée à <strong>{{ invite.email }}</strong>. Déconnectez-vous et connectez-vous avec le compte correspondant.</p>
+    {% else %}
+      <h1>Rejoignez {{ invite.library.name }}.</h1>
+      <p>Vous êtes invité·e en tant que <strong>{{ invite.get_role_display }}</strong>. L'invitation est destinée à {{ invite.email }}.</p>
+    {% endif %}
+  </div>
+  {% if not expired and not email_mismatch %}
+  <div class="auth-card">
+    {% if can_accept %}
+      <h2>Confirmer l'accès</h2>
+      <p>Connecté·e en tant que {{ request.user.email }}.</p>
+      <form method="post">{% csrf_token %}<button type="submit">Rejoindre la bibliothèque</button></form>
+    {% elif account_exists %}
+      <h2>Connectez-vous pour continuer</h2>
+      <p class="form-intro">Un compte existe déjà pour cette adresse. Connectez-vous pour accepter l'invitation.</p>
+      <a class="button-link" href="{% url 'pages:connexion' %}?next={{ request.get_full_path|urlencode }}">Se connecter</a>
+    {% else %}
+      <h2>Créer votre compte</h2>
+      <p class="form-intro">L'adresse {{ invite.email }} sera associée à ce compte.</p>
+      <form method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit">Créer mon compte et rejoindre</button>
+      </form>
+      <p class="auth-switch">Déjà un compte ? <a href="{% url 'pages:connexion' %}?next={{ request.get_full_path|urlencode }}">Se connecter</a></p>
+    {% endif %}
+  </div>
+  {% endif %}
+</section>
+{% endblock %}

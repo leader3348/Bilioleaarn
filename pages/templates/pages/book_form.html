@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Ajouter un livre — Mnémosyne{% endblock %}
+{% block content %}
+<section class="auth-layout single-auth">
+  <div class="auth-intro">
+    <p class="eyebrow">ENRICHIR VOTRE COLLECTION</p>
+    <h1>Ajoutez un livre à l'inventaire.</h1>
+    <p>Les titres partagés dans le catalogue peuvent être ajoutés à votre bibliothèque sans créer de doublon.</p>
+  </div>
+  <div class="auth-card">
+    <h2>Nouveau livre</h2>
+    <form method="post">
+      {% csrf_token %}
+      {{ form.as_p }}
+      <button type="submit">Ajouter à ma bibliothèque</button>
+    </form>
+    <p class="auth-switch"><a href="{% url 'pages:dashboard' %}">Retour à mon espace</a></p>
+  </div>
+</section>
+{% endblock %}

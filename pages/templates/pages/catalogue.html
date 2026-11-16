@@ -1,31 +1,70 @@
 {% extends "base.html" %}
-{% block title %}Catalogue - BiblioLearn{% endblock %}
+{% load static %}
+{% block title %}Les rayons — Mnémosyne{% endblock %}
 {% block content %}
-<section class="catalogue-heading">
-  <p class="eyebrow">À VOUS DE CHOISIR</p>
-  <h2>Le catalogue</h2>
-  <p>Des mondes fantastiques, des sagas à suivre et de nouvelles lectures à explorer.</p>
+<section class="catalogue-masthead">
+  <div class="catalogue-heading">
+    <p class="eyebrow"><span class="eyebrow-mark"></span> LA COLLECTION</p>
+    <h2>Chaque couverture,<br>une <em>nouvelle traversée.</em></h2>
+    <p>Un catalogue de sagas et de mondes imaginaires. Cherchez une lecture, choisissez un voyage.</p>
+  </div>
+  <div class="catalogue-count"><span>{{ livres|length|stringformat:"02d" }}</span><small>LIVRES<br>À EXPLORER</small></div>
 </section>
+<form class="search-bar" method="get">
+  <span class="search-icon" aria-hidden="true">⌕</span>
+  <label class="sr-only" for="catalogue-search">Rechercher un livre, un auteur ou une saga</label>
+  <input id="catalogue-search" type="search" name="q" value="{{ recherche }}" placeholder="Un titre, une saga, un auteur…">
+  {% if serie_active %}<input type="hidden" name="serie" value="{{ serie_active }}">{% endif %}
+  <button type="submit">Trouver mon livre <span aria-hidden="true">→</span></button>
+</form>
 <nav class="filter-bar" aria-label="Filtrer par série">
-  <span>Explorer par série</span>
-  <a class="filter-chip{% if not serie_active %} active{% endif %}" href="{% url 'pages:catalogue' %}">Tout</a>
+  <span class="filter-label">Explorer les sagas</span>
+  <a class="filter-chip{% if not serie_active %} active{% endif %}" href="{% url 'pages:catalogue' %}{% if recherche %}?q={{ recherche|urlencode }}{% endif %}">Tous les mondes</a>
   {% for s in series %}
-  <a class="filter-chip{% if serie_active == s %} active{% endif %}" href="{% url 'pages:catalogue' %}?serie={{ s|urlencode }}">{{ s }}</a>
+  <a class="filter-chip{% if serie_active == s %} active{% endif %}" href="{% url 'pages:catalogue' %}?serie={{ s|urlencode }}{% if recherche %}&q={{ recherche|urlencode }}{% endif %}">{{ s }}</a>
   {% endfor %}
 </nav>
 {% if serie_active %}<p class="active-filter">Sélection : <strong>{{ serie_active }}</strong></p>{% endif %}
+<div class="catalogue-results"><span>{{ livres|length }} livre{% if livres|length != 1 %}s{% endif %} dans la sélection</span>{% if membership %}<span>Votre espace · <strong>{{ membership.library.name }}</strong></span>{% endif %}<span>Couvertures via <a href="https://openlibrary.org/" target="_blank" rel="noopener noreferrer">Open Library</a></span></div>
 <div class="book-grid catalogue-grid">
-  {% for l in livres %}
+  {% for item in livres %}
+  {% with l=item.book %}
   <article class="book-card">
-    <div class="book-cover"><span>{{ l.titre|slice:":1" }}</span><small>{{ l.serie }}</small></div>
+    <a class="book-card-link" href="{% url 'pages:fiche_livre' l.id %}" aria-label="Découvrir {{ l.title }}">
+    <div class="book-cover">
+      <img src="{{ l.cover_url }}" data-fallback="{% static 'pages/images/book-cover-placeholder.svg' %}" alt="Couverture de {{ l.title }}" loading="lazy" decoding="async" referrerpolicy="no-referrer">
+      <span class="cover-ornament" aria-hidden="true">✦</span>
+      {% if l.published_year %}<span class="cover-year">{{ l.published_year }}</span>{% endif %}
+      <small>{{ l.series|default:"Fantasy" }}</small>
+    </div>
     <div class="book-info">
-      <p class="book-series">{{ l.serie }} · Tome {{ l.tome }}</p>
-      <h3>{{ l.titre }}</h3>
-      <p class="book-author">{{ l.auteur }} <span>·</span> {{ l.annee }}</p>
+      <p class="book-series">{{ l.series|default:"Fantasy" }} <span>·</span> Tome {{ l.volume }}</p>
+      <h3>{{ l.title }}</h3>
+      <p class="book-author">{{ l.author }}</p>
+    </div>
+    </a>
+    <div class="book-actions">
+      {% if membership %}
+        {% if item.inventory %}
+          <p class="availability">{% if item.inventory.available_copies %}<span class="availability-dot"></span>{{ item.inventory.available_copies }} disponible{% if item.inventory.available_copies != 1 %}s{% endif %} / {{ item.inventory.total_copies }}{% else %}Aucun exemplaire disponible{% endif %}</p>
+          {% if item.inventory.available_copies %}
+          <form method="post" action="{% url 'pages:emprunter' item.inventory.id %}">
+            {% csrf_token %}
+            <button class="small-button" type="submit">Emprunter</button>
+          </form>
+          {% endif %}
+        {% else %}
+          <p class="availability">Pas encore dans votre bibliothèque.</p>
+        {% endif %}
+      {% else %}
+        <p class="availability"><a href="{% url 'pages:inscription' %}">Créez un espace bibliothèque</a> pour voir ses exemplaires.</p>
+      {% endif %}
+      <a class="detail-link" href="{% url 'pages:fiche_livre' l.id %}">Lire la fiche <span aria-hidden="true">↗</span></a>
     </div>
   </article>
+  {% endwith %}
   {% empty %}
-  <p class="empty-state">Aucun livre trouvé dans cette série.</p>
+  <p class="empty-state">Aucun livre ne correspond à votre recherche.</p>
   {% endfor %}
 </div>
 {% endblock %}
