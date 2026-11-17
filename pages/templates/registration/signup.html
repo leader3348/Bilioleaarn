@@ -1,22 +1,42 @@
 {% extends "base.html" %}
+{% load static %}
 {% block title %}Prendre sa clef — Mnémosyne{% endblock %}
+{% block body_class %}auth-page{% endblock %}
 {% block content %}
-<section class="auth-layout">
+<section class="auth-layout membership-entry" aria-labelledby="signup-title">
   <div class="auth-intro">
-    <p class="eyebrow">14 JOURS D'ESSAI GRATUIT</p>
-    <h1>Donnez vie à votre bibliothèque.</h1>
-    <p>Créez un espace privé pour votre équipe, explorez un catalogue fantasy de départ et suivez vos premiers emprunts.</p>
-    <ul class="billing-benefits"><li>Votre espace est séparé des autres bibliothèques</li><li>Pas de carte bancaire pour démarrer</li><li>Un catalogue de sagas prêt à explorer</li></ul>
+    <p class="eyebrow"><span aria-hidden="true">✦</span> LE REGISTRE DES LECTEURS</p>
+    <h1 id="signup-title">Avant d'entrer, laissez votre nom.</h1>
+    <p>Une bibliothèque prend vie grâce à celles et ceux qui la font grandir. Inscrivez votre nom dans le grand registre.</p>
+    <ul class="billing-benefits"><li>Votre cabinet privé, à partager avec vos lecteurs</li><li>Quatorze jours pour découvrir les lieux</li><li>Quarante ouvrages pour ouvrir les premiers rayons</li></ul>
+    <div class="auth-image-note"><span aria-hidden="true">✧</span><p>« Les plus beaux voyages commencent<br><em>entre deux couvertures. »</em></p></div>
+    <figure class="desk-scene">
+      <img src="{% static 'pages/images/admission-desk.svg' %}" alt="" aria-hidden="true" loading="eager">
+      <figcaption>LE BUREAU DES NOUVELLES ADMISSIONS</figcaption>
+    </figure>
   </div>
-  <div class="auth-card">
-    <h2>Créer un compte</h2>
-    <p class="form-intro">Le compte créé sera propriétaire de la bibliothèque.</p>
+  <div class="auth-card membership-ledger">
+    <div class="ledger-heading">
+      <span class="ledger-seal" aria-hidden="true">M</span>
+      <div><p class="eyebrow">DEMANDE D'ADMISSION</p><p class="ledger-number">REGISTRE · N° 01896</p></div>
+      <span class="ledger-corner" aria-hidden="true">✦</span>
+    </div>
+    <h2>Carte de lecteur</h2>
+    <p class="form-intro">Votre première page commence ici.</p>
     <form method="post">
       {% csrf_token %}
-      {{ form.as_p }}
-      <button type="submit">Créer ma bibliothèque</button>
+      {% if form.non_field_errors %}<div class="form-errors">{{ form.non_field_errors }}</div>{% endif %}
+      <div class="auth-field"><label for="{{ form.first_name.id_for_label }}">Nom complet</label>{{ form.first_name }}{{ form.first_name.errors }}</div>
+      <div class="auth-field"><label for="{{ form.email.id_for_label }}">Adresse de correspondance</label>{{ form.email }}{{ form.email.errors }}</div>
+      <div class="auth-field"><label for="{{ form.username.id_for_label }}">Nom de lecteur</label>{{ form.username }}{{ form.username.errors }}</div>
+      <div class="auth-field"><label for="{{ form.library_name.id_for_label }}">Nom de votre bibliothèque</label>{{ form.library_name }}{{ form.library_name.errors }}</div>
+      <div class="ledger-divider"><span>VOTRE CLEF D'ACCÈS</span></div>
+      <div class="auth-field"><label for="{{ form.password1.id_for_label }}">Mot de passe</label><div class="password-field">{{ form.password1 }}<button class="password-toggle" type="button" aria-label="Afficher le mot de passe" aria-pressed="false">Afficher</button></div>{{ form.password1.help_text|safe }}{{ form.password1.errors }}</div>
+      <div class="auth-field"><label for="{{ form.password2.id_for_label }}">Confirmer le mot de passe</label><div class="password-field">{{ form.password2 }}<button class="password-toggle" type="button" aria-label="Afficher le mot de passe" aria-pressed="false">Afficher</button></div>{{ form.password2.errors }}</div>
+      <button class="auth-submit" type="submit">Inscrire mon nom au registre <span aria-hidden="true">↗</span></button>
     </form>
-    <p class="auth-switch">Déjà inscrit·e ? <a href="{% url 'pages:connexion' %}">Se connecter</a></p>
+    <p class="auth-switch">Déjà membre ? <a href="{% url 'pages:connexion' %}">Retrouver votre clef</a></p>
+    <div class="ledger-footnote"><span aria-hidden="true">❦</span> Les portes s'ouvrent aux esprits curieux <span aria-hidden="true">❦</span></div>
   </div>
 </section>
 {% endblock %}

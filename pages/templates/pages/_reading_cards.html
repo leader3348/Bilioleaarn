@@ -1,0 +1,31 @@
+{% load static %}
+<div class="reading-grid">
+  {% for entry in entries %}
+  <article class="reading-card">
+    <a class="reading-card-cover" href="{% url 'pages:fiche_livre' entry.book.id %}">
+      <img src="{{ entry.book.cover_url }}" data-fallback="{% static 'pages/images/book-cover-placeholder.svg' %}" alt="Couverture de {{ entry.book.title }}" loading="lazy" decoding="async" referrerpolicy="no-referrer">
+    </a>
+    <div class="reading-card-copy">
+      <p class="book-series">{{ entry.book.get_category_display }}{% if entry.book.series %} <span>·</span> {{ entry.book.series }}{% endif %}</p>
+      <h3><a href="{% url 'pages:fiche_livre' entry.book.id %}">{{ entry.book.title }}</a></h3>
+      <p class="book-author">{{ entry.book.author }}</p>
+      {% if entry.status == "reading" or entry.progress %}
+      <div class="reading-progress">
+        <div><span>Progression</span><strong>{{ entry.progress }} %</strong></div>
+        <span class="goal-track" role="progressbar" aria-label="Progression dans {{ entry.book.title }}" aria-valuenow="{{ entry.progress }}" aria-valuemin="0" aria-valuemax="100"><span style="width: {{ entry.progress }}%"></span></span>
+      </div>
+      {% endif %}
+      {% if entry.bookmark_page %}<p class="reading-bookmark">Marque-page · page {{ entry.bookmark_page }}</p>{% endif %}
+      {% if entry.finished_at %}<p class="reading-bookmark">Terminé le {{ entry.finished_at|date:"j F Y" }}</p>{% endif %}
+      {% if entry.is_favorite %}<span class="favorite-mark" aria-label="Dans vos favoris">★ Favori</span>{% endif %}
+    </div>
+    <a class="reading-card-open" href="{% url 'pages:fiche_livre' entry.book.id %}" aria-label="Ouvrir la fiche de {{ entry.book.title }}">↗</a>
+  </article>
+  {% empty %}
+  <div class="reading-empty">
+    <span aria-hidden="true">✦</span>
+    <p>{{ empty_message }}</p>
+    <a href="{% url 'pages:catalogue' %}">Explorer les rayons <span aria-hidden="true">↗</span></a>
+  </div>
+  {% endfor %}
+</div>

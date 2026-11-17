@@ -2,35 +2,98 @@
 {% load static %}
 {% block title %}Mon espace — Mnémosyne{% endblock %}
 {% block content %}
-<section class="workspace-heading">
+<section class="workspace-heading" id="profile">
   <div>
-    <p class="eyebrow">ESPACE BIBLIOTHÈQUE</p>
-    <h1>{{ membership.library.name }}</h1>
-    <p>Connecté·e en tant que {{ request.user.get_username }} · {{ membership.get_role_display }}</p>
+    <p class="eyebrow">VOTRE CABINET PERSONNEL</p>
+    <h1>Bonjour, {{ request.user.get_username }}.</h1>
+    <p>{{ membership.library.name }} <span aria-hidden="true">·</span> {{ membership.get_role_display }}</p>
   </div>
-  {% if membership.role != "member" %}
-  <a class="button-link" href="{% url 'pages:ajouter_livre' %}">Ajouter un livre <span aria-hidden="true">+</span></a>
+  <div class="workspace-heading-actions">
+    <a class="text-link" href="{% url 'pages:catalogue' %}">Explorer les livres <span aria-hidden="true">↗</span></a>
+    {% if membership.role != "member" %}<a class="button-link" href="{% url 'pages:ajouter_livre' %}">Ajouter un livre <span aria-hidden="true">+</span></a>{% endif %}
+  </div>
+</section>
+
+<section class="reader-stats" aria-label="Vos statistiques de lecture">
+  <article><span>En cours</span><strong>{{ currently_reading|length }}</strong><small>livres ouverts</small></article>
+  <article><span>Terminés cette année</span><strong>{{ finished_this_year }}</strong><small>histoires refermées</small></article>
+  <article><span>Vos favoris</span><strong>{{ favorite_books|length }}</strong><small>à retrouver bientôt</small></article>
+  <article><span>Dans votre bibliothèque</span><strong>{{ inventory|length }}</strong><small>titres au catalogue</small></article>
+</section>
+
+<section class="reading-overview{% if not recently_opened %} reading-overview-single{% endif %}">
+  <div class="reading-goal-card">
+    <div class="reading-goal-copy">
+      <p class="eyebrow">VOTRE RENDEZ-VOUS DE LECTURE · {{ reading_year }}</p>
+      <h2>Une année pleine d'histoires.</h2>
+      <p>{{ finished_this_year }} livre{% if finished_this_year != 1 %}s{% endif %} terminé{% if finished_this_year != 1 %}s{% endif %} sur {{ reading_goal_form.instance.books_target|default:12 }}.</p>
+      <div class="goal-track" role="progressbar" aria-label="Progression de votre objectif annuel" aria-valuenow="{{ goal_progress }}" aria-valuemin="0" aria-valuemax="100">
+        <span style="width: {{ goal_progress }}%"></span>
+      </div>
+    </div>
+    <form class="goal-form" method="post" action="{% url 'pages:objectif_lecture' %}">
+      {% csrf_token %}
+      <label for="{{ reading_goal_form.books_target.id_for_label }}">Mon objectif annuel</label>
+      {{ reading_goal_form.books_target }}
+      {{ reading_goal_form.books_target.errors }}
+      <button type="submit">Enregistrer <span aria-hidden="true">→</span></button>
+    </form>
+  </div>
+  {% if recently_opened %}
+  <div class="recent-reading">
+    <p class="eyebrow">REPRENDRE LE FIL</p>
+    <h2>Récemment ouverts</h2>
+    {% for entry in recently_opened %}
+    <a class="recent-reading-link" href="{% url 'pages:fiche_livre' entry.book.id %}">
+      <img src="{{ entry.book.cover_url }}" data-fallback="{% static 'pages/images/book-cover-placeholder.svg' %}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">
+      <span><strong>{{ entry.book.title }}</strong><small>{{ entry.book.author }}</small></span>
+      <span class="related-arrow" aria-hidden="true">↗</span>
+    </a>
+    {% endfor %}
+  </div>
   {% endif %}
 </section>
 
-<section class="workspace-stats" aria-label="Résumé de votre bibliothèque">
-  <article><span>Livres au catalogue</span><strong>{{ inventory|length }}</strong></article>
-  <article><span>Emprunts en cours</span><strong>{{ loans|length }}</strong></article>
-  <article><span>Membres</span><strong>{{ member_count }}</strong></article>
-  <article><span>Abonnement</span><strong class="status-{{ membership.library.subscription_status }}">{{ membership.library.get_subscription_status_display|default:membership.library.subscription_status }}</strong></article>
+<section class="content-section reading-section" id="currently-reading">
+  <div class="section-heading">
+    <div><p class="eyebrow">LE MARQUE-PAGE EST POSÉ</p><h2>En cours de lecture</h2></div>
+    <a class="text-link" href="{% url 'pages:catalogue' %}">Trouver le prochain livre <span aria-hidden="true">↗</span></a>
+  </div>
+  {% include "pages/_reading_cards.html" with entries=currently_reading empty_message="Aucune lecture en cours. Choisissez un livre dans le catalogue et marquez-le comme commencé." %}
 </section>
 
-<section class="content-section workspace-section">
+<section class="content-section reading-section" id="saved-books">
   <div class="section-heading">
-    <div><p class="eyebrow">GESTION DE LA BIBLIOTHÈQUE</p><h2>Votre inventaire</h2></div>
-    <a class="text-link" href="{% url 'pages:catalogue' %}">Parcourir le catalogue partagé <span aria-hidden="true">→</span></a>
+    <div><p class="eyebrow">POUR PLUS TARD</p><h2>À lire un jour</h2></div>
+  </div>
+  {% include "pages/_reading_cards.html" with entries=want_to_read empty_message="Votre liste est encore vide. Enregistrez un titre depuis sa fiche pour le garder sous la main." %}
+</section>
+
+<section class="content-section reading-section" id="favorites">
+  <div class="section-heading">
+    <div><p class="eyebrow">LES HISTOIRES QUI RESTENT</p><h2>Vos favoris</h2></div>
+  </div>
+  {% include "pages/_reading_cards.html" with entries=favorite_books empty_message="Pas encore de favoris. Ajoutez une étoile aux livres que vous aimez." %}
+</section>
+
+<section class="content-section reading-section" id="reading-history">
+  <div class="section-heading">
+    <div><p class="eyebrow">VOS PAGES TOURNÉES</p><h2>Historique de lecture</h2></div>
+  </div>
+  {% include "pages/_reading_cards.html" with entries=finished_books empty_message="Les livres que vous terminez apparaîtront ici." %}
+</section>
+
+<section class="content-section workspace-section" id="library-inventory">
+  <div class="section-heading">
+    <div><p class="eyebrow">LA COLLECTION PARTAGÉE</p><h2>Inventaire de {{ membership.library.name }}</h2></div>
+    <a class="text-link" href="{% url 'pages:catalogue' %}">Catalogue partagé <span aria-hidden="true">→</span></a>
   </div>
   <div class="table-wrap">
     <table class="data-table">
-      <thead><tr><th>Livre</th><th>Saga</th><th>Exemplaires</th><th>Disponibles</th></tr></thead>
+      <thead><tr><th>Livre</th><th>Collection</th><th>Exemplaires</th><th>Disponibles</th></tr></thead>
       <tbody>
       {% for item in inventory %}
-              <tr><td><div class="inventory-book"><img src="{{ item.book.cover_url }}" data-fallback="{% static 'pages/images/book-cover-placeholder.svg' %}" alt="Couverture de {{ item.book.title }}" loading="lazy" decoding="async" referrerpolicy="no-referrer"><span><strong>{{ item.book.title }}</strong><small>{{ item.book.author }}</small></span></div></td><td>{{ item.book.series|default:"—" }}</td><td>{{ item.total_copies }}</td><td>{{ item.available_copies }}</td></tr>
+        <tr><td><a class="inventory-book" href="{% url 'pages:fiche_livre' item.book.id %}"><img src="{{ item.book.cover_url }}" data-fallback="{% static 'pages/images/book-cover-placeholder.svg' %}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer"><span><strong>{{ item.book.title }}</strong><small>{{ item.book.author }}</small></span></a></td><td>{{ item.book.series|default:item.book.get_category_display }}</td><td>{{ item.total_copies }}</td><td>{{ item.available_copies }}</td></tr>
       {% empty %}
         <tr><td colspan="4" class="table-empty">Aucun livre dans l'inventaire.</td></tr>
       {% endfor %}
@@ -39,9 +102,9 @@
   </div>
 </section>
 
-<section class="content-section workspace-section">
+<section class="content-section workspace-section" id="borrowed-books">
   <div class="section-heading">
-    <div><p class="eyebrow">SUIVI QUOTIDIEN</p><h2>Emprunts en cours</h2></div>
+    <div><p class="eyebrow">À GARDER PRÈS DE SOI</p><h2>Emprunts en cours</h2></div>
   </div>
   <div class="table-wrap">
     <table class="data-table">
@@ -49,7 +112,7 @@
       <tbody>
       {% for loan in loans %}
         <tr>
-          <td><div class="inventory-book"><img src="{{ loan.library_book.book.cover_url }}" data-fallback="{% static 'pages/images/book-cover-placeholder.svg' %}" alt="Couverture de {{ loan.library_book.book.title }}" loading="lazy" decoding="async" referrerpolicy="no-referrer"><span><strong>{{ loan.library_book.book.title }}</strong><small>{{ loan.library_book.book.author }}</small></span></div></td>
+          <td><a class="inventory-book" href="{% url 'pages:fiche_livre' loan.library_book.book.id %}"><img src="{{ loan.library_book.book.cover_url }}" data-fallback="{% static 'pages/images/book-cover-placeholder.svg' %}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer"><span><strong>{{ loan.library_book.book.title }}</strong><small>{{ loan.library_book.book.author }}</small></span></a></td>
           {% if membership.role != "member" %}<td>{{ loan.borrower.get_username }}</td>{% endif %}
           <td>{{ loan.due_date|date:"j F Y" }}</td>
           <td><form method="post" action="{% url 'pages:rendre_livre' loan.id %}">{% csrf_token %}<button class="small-button secondary-button" type="submit">Marquer comme rendu</button></form></td>

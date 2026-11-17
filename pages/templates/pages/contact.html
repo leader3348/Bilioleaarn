@@ -1,13 +1,20 @@
-{% extends "base.html" %}
+  {% extends "base.html" %}
 {% block title %}Nous écrire — Mnémosyne{% endblock %}
 {% block content %}
-<h2>Contact</h2>
-{% if nom_recu %}
-  <p class="succes">Merci {{ nom_recu }}, votre message a bien été reçu</p>
-{% endif %}
-<form method="post">
-  {% csrf_token %}
-  {{ form.as_p }}
-  <button type="submit">Envoyer</button>
-</form>
+<section class="editorial-page contact-page">
+  <header class="editorial-heading">
+    <p class="eyebrow">UNE QUESTION, UNE IDÉE, UN MOT</p>
+    <h1>Écrivons-nous.</h1>
+    <p>Une question sur votre bibliothèque ou une histoire à partager ? Nous sommes à l'écoute.</p>
+  </header>
+  {% if nom_recu %}<p class="message message-success" role="status">Merci {{ nom_recu }}, votre message a bien été reçu.</p>{% endif %}
+  <div class="contact-panel">
+    <div><p class="eyebrow">LE COURRIER DU CABINET</p><h2>À votre plume.</h2><p>Écrivez-nous, nous vous répondrons avec plaisir.</p></div>
+    <form method="post">
+      {% csrf_token %}
+      {{ form.as_p }}
+      <button class="auth-submit" type="submit">Envoyer mon message <span aria-hidden="true">↗</span></button>
+    </form>
+  </div>
+</section>
 {% endblock %}

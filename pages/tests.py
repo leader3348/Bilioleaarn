@@ -1,12 +1,14 @@
 from datetime import timedelta
+import re
 from types import SimpleNamespace
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
+from django.core import mail
 from django.test import TestCase, override_settings
 from django.utils import timezone
 
-from .models import Book, Library, Loan, Membership, MembershipInvite
+from .models import Book, Library, Loan, Membership, MembershipInvite, ReadingGoal, ReadingShelfEntry
 
 
 class BibliothequePagesTests(TestCase):
@@ -19,22 +21,94 @@ class BibliothequePagesTests(TestCase):
     def test_catalogue_includes_new_books_and_filters_by_series(self):
         response = self.client.get("/catalogue/")
 
-        self.assertContains(response, "The Two Towers")
-        self.assertContains(response, "The Wise Man&#x27;s Fear")
+        self.assertEqual(response.context["page_obj"].paginator.count, 240)
+        self.assertContains(response, "A Game of Thrones")
 
         filtered_response = self.client.get("/catalogue/?serie=Mistborn")
         self.assertContains(filtered_response, "The Well of Ascension")
         self.assertNotContains(filtered_response, "The Two Towers")
+        search_response = self.client.get("/catalogue/?q=The%20Two%20Towers")
+        self.assertContains(search_response, "The Two Towers")
+        self.assertNotContains(search_response, "The Wise Man&#x27;s Fear")
+
+    def test_catalogue_paginates_archive_without_truncating_the_3d_collection(self):
+        first_page = self.client.get("/catalogue/")
+        second_page = self.client.get("/catalogue/?page=2")
+
+        self.assertEqual(len(first_page.context["livres"]), 24)
+        self.assertEqual(first_page.context["page_obj"].paginator.num_pages, 10)
+        self.assertEqual(len(first_page.context["scene_books"]), 240)
+        self.assertEqual(len(second_page.context["scene_books"]), 240)
+        self.assertNotEqual(
+            first_page.context["livres"][0]["book"].pk,
+            second_page.context["livres"][0]["book"].pk,
+        )
+
+    def test_catalogue_filters_books_and_3d_shelves_by_genre(self):
+        response = self.client.get("/catalogue/?genre=science_fiction")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.context["livres"]), 20)
+        self.assertEqual({book["category"] for book in response.context["scene_books"]}, {"science_fiction"})
+        self.assertContains(response, "Dune")
+        self.assertNotContains(response, "The Hobbit")
+
+    def test_catalogue_has_alphabetized_clickable_shelves_and_author_sort(self):
+        response = self.client.get("/catalogue/")
+        content = response.content.decode()
+
+        self.assertContains(response, "Un monde de livres")
+        self.assertContains(response, "library-books-data")
+        self.assertIn('href="/catalogue/?serie=A%20Song%20of%20Ice%20and%20Fire"', content)
+        self.assertIn('data-shelf="fantasy"', content)
+        self.assertLess(content.index("A Song of Ice and Fire"), content.index("Arthurian fantasy"))
+
+        author_sorted = self.client.get("/catalogue/?ordre=auteur")
+        self.assertEqual(author_sorted.context["livres"][0]["book"].title, "The Dark Crystal")
+        self.assertEqual(len(author_sorted.context["scene_books"]), 240)
+        self.assertEqual(author_sorted.context["scene_books"][0]["title"], "The Dark Crystal")
+
+    def test_immersive_catalogue_exposes_only_current_library_availability(self):
+        self.create_library_account(self.client, "owner-one", "one@example.com", "First Library")
+        book = Book.objects.get(title="The Way of Kings")
+
+        response = self.client.get("/catalogue/")
+        scene_book = next(book_data for book_data in response.context["scene_books"] if book_data["id"] == book.pk)
+
+        self.assertEqual(scene_book["available"], 1)
+        self.assertEqual(scene_book["detail"], f"/livres/{book.pk}/")
 
     def test_every_catalog_book_has_a_cover_image_and_local_fallback(self):
         response = self.client.get("/catalogue/")
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.content.decode().count('class="book-cover"'), 40)
-        self.assertEqual(response.content.decode().count("covers.openlibrary.org/b/id/"), 36)
+        self.assertEqual(response.content.decode().count('class="book-cover"'), 24)
+        self.assertEqual(Book.objects.filter(openlibrary_cover_id__isnull=False).count(), 36)
         self.assertContains(response, "pages/images/book-cover-placeholder.svg")
-        self.assertTrue(all(book.cover_url for book in Book.objects.all()))
+        self.assertTrue(all(book.cover_url.endswith(".svg") or "/b/id/" in book.cover_url for book in Book.objects.all()))
         self.assertFalse(any("/b/title/" in book.cover_url for book in Book.objects.all()))
+        self.assertEqual(Book.objects.filter(category=Book.Category.FANTASY).count(), 40)
+        self.assertEqual(Book.objects.filter(category=Book.Category.SCIENCE_FICTION).count(), 20)
+        self.assertEqual(
+            list(Book.objects.values_list("category", flat=True).distinct().order_by("category")),
+            [
+                Book.Category.COMPUTER_SCIENCE,
+                Book.Category.FANTASY,
+                Book.Category.HISTORY,
+                Book.Category.LITERATURE,
+                Book.Category.MATHEMATICS,
+                Book.Category.MYSTERY,
+                Book.Category.PHILOSOPHY,
+                Book.Category.PSYCHOLOGY,
+                Book.Category.ROMANCE,
+                Book.Category.SCIENCE,
+                Book.Category.SCIENCE_FICTION,
+            ],
+        )
+        self.assertIn("Superintelligence", {book["title"] for book in response.context["scene_books"]})
+        generated_cover = self.client.get(f"/livres/{Book.objects.get(title='Dune').pk}/couverture.svg")
+        self.assertEqual(generated_cover["Content-Type"], "image/svg+xml; charset=utf-8")
+        self.assertContains(generated_cover, "SCIENCE-FICTION")
 
     def test_book_detail_shows_book_facts_and_legal_reading_options(self):
         book = Book.objects.get(title="The Hobbit")
@@ -50,6 +124,66 @@ class BibliothequePagesTests(TestCase):
         self.assertEqual(book.reading_url, "https://openlibrary.org/works/OL27482W")
         self.assertContains(response, "Collection")
         self.assertEqual(self.client.get("/livres/999999/").status_code, 404)
+
+    def test_personal_reading_shelf_tracks_status_progress_favorites_and_goal(self):
+        self.create_library_account(self.client, "reader-one", "reader@example.com", "Reader's Cabinet")
+        book = Book.objects.get(title="The Way of Kings")
+        shelf_url = f"/livres/{book.pk}/bibliotheque/"
+
+        self.client.post(shelf_url, {"action": "status", "status": ReadingShelfEntry.Status.READING})
+        self.client.post(shelf_url, {"action": "progress", "progress": 37})
+        self.client.post(shelf_url, {"action": "bookmark", "bookmark_page": 128})
+        self.client.post(shelf_url, {"action": "favorite", "favorite": "true"})
+        entry = ReadingShelfEntry.objects.get(user__username="reader-one", book=book)
+
+        self.assertEqual(entry.status, ReadingShelfEntry.Status.READING)
+        self.assertEqual(entry.progress, 37)
+        self.assertEqual(entry.bookmark_page, 128)
+        self.assertTrue(entry.is_favorite)
+        self.assertContains(self.client.get("/espace/"), "En cours de lecture")
+        self.assertContains(self.client.get("/espace/#favorites"), "The Way of Kings")
+
+        self.client.post("/espace/objectif/", {"books_target": 24})
+        goal = ReadingGoal.objects.get(user__username="reader-one")
+        self.assertEqual(goal.books_target, 24)
+
+        self.client.post(shelf_url, {"action": "status", "status": ReadingShelfEntry.Status.FINISHED})
+        entry.refresh_from_db()
+        self.assertEqual(entry.progress, 100)
+        self.assertIsNotNone(entry.finished_at)
+
+    @override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
+    def test_password_reset_flow_sends_a_working_single_use_link(self):
+        user = get_user_model().objects.create_user(
+            username="reader-reset",
+            email="reset@example.com",
+            password="A-very-strong-test-password-2026",
+        )
+        response = self.client.post("/mot-de-passe/oublie/", {"email": user.email}, follow=True)
+
+        self.assertContains(response, "vérifier votre boîte mail")
+        self.assertEqual(len(mail.outbox), 1)
+        reset_link = re.search(
+            r"(\/mot-de-passe\/reinitialiser\/[\w-]+\/[\w-]+\/)",
+            mail.outbox[0].body,
+        )
+        self.assertIsNotNone(reset_link)
+        reset_path = reset_link.group(1)
+        reset_page = self.client.get(reset_path, follow=True)
+        self.assertContains(reset_page, "Nouveau mot de passe")
+        reset_path = reset_page.redirect_chain[-1][0]
+        response = self.client.post(
+            reset_path,
+            {
+                "new_password1": "A-different-strong-password-2026!",
+                "new_password2": "A-different-strong-password-2026!",
+            },
+            follow=True,
+        )
+
+        self.assertContains(response, "La clef a changé")
+        user.refresh_from_db()
+        self.assertTrue(user.check_password("A-different-strong-password-2026!"))
 
     def test_book_detail_only_shows_current_library_inventory(self):
         self.create_library_account(self.client, "owner-one", "one@example.com", "First Library")
@@ -73,6 +207,7 @@ class BibliothequePagesTests(TestCase):
         return client.post(
             "/inscription/",
             {
+                "first_name": f"Lecteur {username}",
                 "username": username,
                 "email": email,
                 "library_name": library_name,
@@ -89,7 +224,12 @@ class BibliothequePagesTests(TestCase):
             "Dragon Library",
         )
 
-        self.assertRedirects(response, "/espace/")
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response["Location"], "/inscription/carte-de-membre/")
+        certificate = self.client.get("/inscription/carte-de-membre/")
+        self.assertContains(certificate, "Carte de membre")
+        self.assertContains(certificate, "Lecteur owner-one")
+        self.assertContains(certificate, "Dragon Library")
         library = Library.objects.get(name="Dragon Library")
         membership = Membership.objects.get(library=library)
         self.assertEqual(membership.user.username, "owner-one")
@@ -97,6 +237,31 @@ class BibliothequePagesTests(TestCase):
         self.assertEqual(library.inventory.count(), 40)
         self.assertTrue(library.has_access)
         self.assertContains(self.client.get("/espace/"), "Dragon Library")
+        self.assertRedirects(self.client.get("/inscription/carte-de-membre/"), "/espace/")
+
+    def test_login_accepts_email_or_username_and_remember_me_controls_session(self):
+        user = get_user_model().objects.create_user(
+            username="reader-login",
+            email="reader-login@example.com",
+            password="A-very-strong-test-password-2026",
+        )
+
+        response = self.client.post(
+            "/connexion/",
+            {"username": user.email, "password": "A-very-strong-test-password-2026", "remember_me": "on"},
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response["Location"], "/espace/")
+        self.assertFalse(self.client.session.get_expire_at_browser_close())
+
+        self.client.post("/deconnexion/")
+        response = self.client.post(
+            "/connexion/",
+            {"username": user.username, "password": "A-very-strong-test-password-2026"},
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response["Location"], "/espace/")
+        self.assertTrue(self.client.session.get_expire_at_browser_close())
 
     def test_loan_workflow_is_scoped_to_library(self):
         self.create_library_account(self.client, "owner-one", "one@example.com", "First Library")
@@ -135,7 +300,7 @@ class BibliothequePagesTests(TestCase):
         response = self.client.post("/abonnement/checkout/", follow=True)
 
         self.assertContains(response, "La facturation n&#x27;est pas configurée")
-        self.assertEqual(Book.objects.count(), 40)
+        self.assertEqual(Book.objects.count(), 240)
 
     @override_settings(STRIPE_SECRET_KEY="sk_test_example", STRIPE_PRICE_ID="price_monthly")
     @patch("pages.views.stripe.checkout.Session.create")
@@ -189,6 +354,7 @@ class BibliothequePagesTests(TestCase):
             {
                 "title": "The Ember Archive",
                 "author": "A. Testwriter",
+                "category": Book.Category.FANTASY,
                 "published_year": 2024,
                 "series": "Ember Archive",
                 "volume": 1,

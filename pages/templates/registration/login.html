@@ -1,23 +1,40 @@
 {% extends "base.html" %}
+{% load static %}
 {% block title %}Connexion — Mnémosyne{% endblock %}
+{% block body_class %}auth-page{% endblock %}
 {% block content %}
-<section class="auth-layout single-auth">
+<section class="auth-layout single-auth library-entrance" aria-labelledby="login-title">
   <div class="auth-intro">
-    <p class="eyebrow">RAVI DE VOUS REVOIR</p>
-    <h1>Retrouvez votre bibliothèque.</h1>
-    <p>Connectez-vous pour suivre les emprunts et retrouver votre espace de travail.</p>
+    <img class="entrance-door-art" src="{% static 'pages/images/library-gate.svg' %}" alt="" aria-hidden="true">
+    <p class="eyebrow"><span aria-hidden="true">✦</span> LE GRAND CABINET · DEPUIS 1896</p>
+    <h1 id="login-title">La porte est restée entrouverte.</h1>
+    <p>Retrouvez le calme des rayons, les pages que vous aimez et la place qui vous attend parmi les lecteurs.</p>
+    <div class="entrance-inscription" aria-hidden="true">
+      <span class="entrance-inscription-rule"></span>
+      <span>QUIETIS · LECTIO · LUX</span>
+      <span class="entrance-inscription-rule"></span>
+    </div>
+    <div class="auth-image-note"><span aria-hidden="true">✧</span><p>« Chaque livre ouvre une porte<br><em>vers un autre monde. »</em></p></div>
+    <a class="entrance-explore" href="{% url 'pages:catalogue' %}">Avant d'entrer, explorer le catalogue <span aria-hidden="true">↗</span></a>
   </div>
-  <div class="auth-card">
-    <h2>Connexion</h2>
+  <div class="auth-card reception-ledger">
+    <div class="ledger-heading">
+      <span class="ledger-seal" aria-hidden="true">M</span>
+      <p class="eyebrow">LE BUREAU DU BIBLIOTHÉCAIRE</p>
+    </div>
+    <h2>Heureux de vous revoir.</h2>
+    <p class="form-intro">Déclinez votre identité, lecteur. Vos rayons vous attendent.</p>
     <form method="post">
       {% csrf_token %}
       {% if form.non_field_errors %}<div class="form-errors">{{ form.non_field_errors }}</div>{% endif %}
-      <p><label for="{{ form.username.id_for_label }}">Nom d'utilisateur</label>{{ form.username }}{{ form.username.errors }}</p>
-      <p><label for="{{ form.password.id_for_label }}">Mot de passe</label>{{ form.password }}{{ form.password.errors }}</p>
+      <div class="auth-field"><label for="{{ form.username.id_for_label }}">E-mail ou nom d'utilisateur</label>{{ form.username }}{{ form.username.errors }}</div>
+      <div class="auth-field"><div class="field-label-row"><label for="{{ form.password.id_for_label }}">Votre clef secrète</label><a href="{% url 'pages:password_reset' %}">Clef oubliée ?</a></div><div class="password-field">{{ form.password }}<button class="password-toggle" type="button" aria-label="Afficher le mot de passe" aria-pressed="false">Afficher</button></div>{{ form.password.errors }}</div>
       {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
-      <button type="submit">Se connecter</button>
+      <div class="remember-row">{{ form.remember_me }}<label for="{{ form.remember_me.id_for_label }}">Rester parmi les lecteurs sur cet appareil</label></div>
+      <button class="auth-submit" type="submit">Franchir le seuil <span aria-hidden="true">↗</span></button>
     </form>
-    <p class="auth-switch">Pas encore de compte ? <a href="{% url 'pages:inscription' %}">Créer une bibliothèque</a></p>
+    <p class="auth-switch">Vous n'êtes pas encore inscrit ? <a href="{% url 'pages:inscription' %}">Laisser votre nom au registre</a></p>
+    <div class="ledger-footnote"><span aria-hidden="true">❦</span> La connaissance grandit lorsqu'elle est partagée <span aria-hidden="true">❦</span></div>
   </div>
 </section>
 {% endblock %}

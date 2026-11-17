@@ -1,4 +1,6 @@
 from datetime import datetime, timedelta, timezone as datetime_timezone
+from hashlib import sha256
+from html import escape
 import secrets
 
 import stripe
@@ -6,6 +8,8 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import get_user_model, login
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.views import LoginView
+from django.core.paginator import Paginator
 from django.db import IntegrityError, transaction
 from django.db.models import Count, Q
 from django.http import HttpResponse, HttpResponseBadRequest
@@ -16,8 +20,26 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
 from .catalog import FANTASY_BOOKS
-from .forms import BookForm, ContactForm, InvitationAccountForm, MembershipInviteForm, SignUpForm
-from .models import Book, Library, LibraryBook, Loan, Membership, MembershipInvite
+from .forms import (
+    BookForm,
+    ContactForm,
+    InvitationAccountForm,
+    MembershipInviteForm,
+    MnemosyneAuthenticationForm,
+    ReadingEntryActionForm,
+    ReadingGoalForm,
+    SignUpForm,
+)
+from .models import (
+    Book,
+    Library,
+    LibraryBook,
+    Loan,
+    Membership,
+    MembershipInvite,
+    ReadingGoal,
+    ReadingShelfEntry,
+)
 
 
 MAISONS = [
@@ -51,26 +73,50 @@ def _can_manage(membership):
 def accueil(request):
     featured = list(Book.objects.filter(title="The Great Hunt")[:1])
     nouveautes = featured + list(Book.objects.exclude(pk__in=[book.pk for book in featured]).order_by("-created_at")[:3])
+    category_counts = {
+        row["category"]: row["book_count"]
+        for row in Book.objects.values("category").annotate(book_count=Count("pk"))
+    }
     return render(
         request,
         "pages/accueil.html",
         {
             "nom_projet": "Mnémosyne",
-            "modules": ["Catalogue partagé", "Gestion des emprunts", "Équipe et rôles", "Abonnement sécurisé"],
+            "modules": ["Catalogue partagé", "Gestion des emprunts", "Suivi de lecture", "Équipe et rôles"],
             "nb_ressources": Book.objects.count(),
             "nouveautes": nouveautes,
+            "categories": [
+                {"value": value, "label": label, "book_count": category_counts.get(value, 0)}
+                for value, label in Book.Category.choices
+            ],
         },
     )
 
 
 def catalogue(request):
     serie = request.GET.get("serie", "").strip()
+    categorie = request.GET.get("genre", "").strip()
     recherche = request.GET.get("q", "").strip()
+    ordre = request.GET.get("ordre", "titre").strip()
     books = Book.objects.all()
     if serie:
         books = books.filter(series=serie)
+    if categorie in Book.Category.values:
+        books = books.filter(category=categorie)
+    else:
+        categorie = ""
     if recherche:
-        books = books.filter(Q(title__icontains=recherche) | Q(author__icontains=recherche) | Q(series__icontains=recherche))
+        books = books.filter(
+            Q(title__icontains=recherche)
+            | Q(author__icontains=recherche)
+            | Q(series__icontains=recherche)
+            | Q(category__icontains=recherche)
+        )
+    if ordre == "auteur":
+        books = books.order_by("author", "title")
+    else:
+        ordre = "titre"
+        books = books.order_by("title", "author")
 
     membership = None
     inventory_by_book = {}
@@ -87,29 +133,146 @@ def catalogue(request):
                 .annotate(active_loan_count=Count("loans", filter=Q(loans__returned_at__isnull=True)))
             }
 
+    filtered_books = list(books)
+    result_count = len(filtered_books)
+    page_obj = Paginator(filtered_books, 24).get_page(request.GET.get("page"))
     livres = [
         {"book": book, "inventory": inventory_by_book.get(book.pk)}
-        for book in books
+        for book in page_obj.object_list
     ]
-    series = Book.objects.exclude(series="").order_by("series").values_list("series", flat=True).distinct()
+    collections_by_series = {}
+    for book in Book.objects.exclude(series="").order_by("series", "title"):
+        collection = collections_by_series.setdefault(
+            book.series,
+            {"series": book.series, "book_count": 0, "books": []},
+        )
+        collection["book_count"] += 1
+        if len(collection["books"]) < 4:
+            collection["books"].append(book)
+    series = sorted(collections_by_series.values(), key=lambda collection: collection["series"].casefold())
+    category_counts = {
+        row["category"]: row["book_count"]
+        for row in Book.objects.values("category").annotate(book_count=Count("pk"))
+    }
+    categories = [
+        {"value": value, "label": label, "book_count": category_counts.get(value, 0)}
+        for value, label in Book.Category.choices
+    ]
+    scene_books = [
+        {
+            "id": item["book"].pk,
+            "title": item["book"].title,
+            "author": item["book"].author,
+            "series": item["book"].series,
+            "category": item["book"].category,
+            "category_label": item["book"].get_category_display(),
+            "volume": item["book"].volume,
+            "year": item["book"].published_year,
+            "cover": (
+                f"https://covers.openlibrary.org/b/id/{item['book'].openlibrary_cover_id}-M.jpg?default=false"
+                if item["book"].openlibrary_cover_id
+                else item["book"].cover_url
+            ),
+            "detail": reverse("pages:fiche_livre", args=(item["book"].pk,)),
+            "available": item["inventory"]["available_copies"] if item["inventory"] else None,
+        }
+        for item in (
+            {"book": book, "inventory": inventory_by_book.get(book.pk)}
+            for book in filtered_books
+        )
+    ]
     return render(
         request,
         "pages/catalogue.html",
         {
             "livres": livres,
+            "scene_books": scene_books,
+            "page_obj": page_obj,
+            "result_count": result_count,
             "series": series,
+            "categories": categories,
             "serie_active": serie,
+            "categorie_active": categorie,
             "recherche": recherche,
+            "ordre": ordre,
             "membership": membership,
         },
     )
+
+
+def couverture_livre(request, book_id):
+    book = get_object_or_404(Book, pk=book_id)
+    palette = [
+        ("#192c31", "#26706f", "#e7bb72"),
+        ("#33202a", "#9d4750", "#f0c983"),
+        ("#262b31", "#536e79", "#e6ce9b"),
+        ("#33271d", "#8d673d", "#eacb87"),
+        ("#202c25", "#577257", "#e5bf7d"),
+        ("#30222a", "#80566e", "#efc98b"),
+        ("#25253a", "#6a64a1", "#ebd08c"),
+        ("#39281f", "#a05c37", "#f0d496"),
+    ]
+    artwork = sha256(f"{book.category}:{book.pk}:{book.title}".encode("utf-8")).digest()
+    background, accent, foil = palette[artwork[0] % len(palette)]
+    title_lines = []
+    line = ""
+    for word in book.title.split():
+        candidate = f"{line} {word}".strip()
+        if line and len(candidate) > 22:
+            title_lines.append(line)
+            line = word
+        else:
+            line = candidate
+    if line:
+        title_lines.append(line)
+    size = 51 if len(book.title) < 20 else 43 if len(book.title) < 29 else 35
+    title_markup = "".join(
+        f'<tspan x="280" dy="{0 if index == 0 else size + 8}">{escape(text)}</tspan>'
+        for index, text in enumerate(title_lines[:5])
+    )
+    center_x = 140 + artwork[1] % 280
+    center_y = 150 + artwork[2] % 430
+    category = escape(book.get_category_display().upper())
+    author = escape(book.author)
+    svg = f"""<svg xmlns="http://www.w3.org/2000/svg" width="560" height="840" viewBox="0 0 560 840">
+<defs>
+  <linearGradient id="cover" x1="0" x2="1" y1="0" y2="1"><stop stop-color="{background}"/><stop offset="1" stop-color="{accent}"/></linearGradient>
+  <radialGradient id="light"><stop stop-color="{foil}" stop-opacity=".42"/><stop offset="1" stop-color="{foil}" stop-opacity="0"/></radialGradient>
+  <pattern id="grain" width="14" height="14" patternUnits="userSpaceOnUse"><path d="M0 4h14M0 11h14" stroke="{foil}" stroke-opacity=".06"/></pattern>
+</defs>
+<rect width="560" height="840" fill="url(#cover)"/>
+<rect width="560" height="840" fill="url(#light)"/>
+<rect width="560" height="840" fill="url(#grain)"/>
+<path d="M0 0h560v840H0zM24 24v792h512V24z" fill="none" stroke="{foil}" stroke-opacity=".72" stroke-width="2"/>
+<path d="M40 40h480v760H40z" fill="none" stroke="{foil}" stroke-opacity=".3"/>
+<g fill="none" stroke="{foil}" stroke-opacity=".58">
+  <circle cx="{center_x}" cy="{center_y}" r="{90 + artwork[3] % 90}" stroke-width="2"/>
+  <circle cx="{center_x}" cy="{center_y}" r="{62 + artwork[4] % 38}" stroke-width="1"/>
+  <path d="M{center_x - 125} {center_y}h250M{center_x} {center_y - 125}v250" stroke-width="1"/>
+  <path d="M{center_x - 88} {center_y - 88}l176 176M{center_x + 88} {center_y - 88}l-176 176" stroke-width="1"/>
+  <path d="M280 58l16 16-16 16-16-16zM280 750l16 16-16 16-16-16z" stroke-width="2"/>
+</g>
+<text x="280" y="115" fill="{foil}" font-family="Georgia,serif" font-size="17" letter-spacing="5" text-anchor="middle">{category}</text>
+<text x="280" y="{max(295, 377 - max(0, len(title_lines) - 2) * 28)}" fill="#fff5df" font-family="Georgia,serif" font-size="{size}" text-anchor="middle" font-weight="600">{title_markup}</text>
+<path d="M128 700h304" stroke="{foil}" stroke-opacity=".65"/>
+<text x="280" y="744" fill="#f3e5c6" font-family="Georgia,serif" font-size="23" letter-spacing="1" text-anchor="middle">{author}</text>
+<text x="280" y="790" fill="{foil}" font-family="Georgia,serif" font-size="13" letter-spacing="4" text-anchor="middle">MNÉMOSYNE · LE GRAND CABINET</text>
+</svg>"""
+    response = HttpResponse(svg, content_type="image/svg+xml; charset=utf-8")
+    response["Cache-Control"] = "public, max-age=86400"
+    return response
 
 
 def fiche_livre(request, book_id):
     book = get_object_or_404(Book, pk=book_id)
     membership = None
     inventory = None
+    reading_entry = None
     if request.user.is_authenticated:
+        reading_entry = ReadingShelfEntry.objects.filter(user=request.user, book=book).first()
+        if reading_entry:
+            reading_entry.last_opened_at = timezone.now()
+            reading_entry.save(update_fields=("last_opened_at", "updated_at"))
         membership = Membership.objects.filter(user=request.user).select_related("library").first()
         if membership:
             inventory = (
@@ -119,11 +282,8 @@ def fiche_livre(request, book_id):
             )
             if inventory:
                 inventory._active_loan_count = inventory.active_loan_count
-    series_books = (
-        Book.objects.filter(series=book.series).exclude(pk=book.pk)
-        if book.series
-        else Book.objects.none()
-    )
+    related_books = Book.objects.filter(series=book.series) if book.series else Book.objects.filter(category=book.category)
+    related_books = related_books.exclude(pk=book.pk)
     return render(
         request,
         "pages/book_detail.html",
@@ -131,7 +291,8 @@ def fiche_livre(request, book_id):
             "book": book,
             "membership": membership,
             "inventory": inventory,
-            "series_books": series_books[:4],
+            "reading_entry": reading_entry,
+            "series_books": related_books[:4],
         },
     )
 
@@ -150,6 +311,19 @@ def contact(request):
     else:
         form = ContactForm()
     return render(request, "pages/contact.html", {"form": form, "nom_recu": nom_recu})
+
+
+class MnemosyneLoginView(LoginView):
+    template_name = "registration/login.html"
+    authentication_form = MnemosyneAuthenticationForm
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        if form.cleaned_data["remember_me"]:
+            self.request.session.set_expiry(settings.SESSION_COOKIE_AGE)
+        else:
+            self.request.session.set_expiry(0)
+        return response
 
 
 def inscription(request):
@@ -176,9 +350,24 @@ def inscription(request):
                 )
                 LibraryBook.objects.create(library=library, book=book, total_copies=1)
         login(request, user, backend="django.contrib.auth.backends.ModelBackend")
-        messages.success(request, "Votre bibliothèque est prête. Vous bénéficiez de 14 jours d'essai gratuit.")
-        return redirect("pages:dashboard")
+        request.session["membership_certificate_pending"] = True
+        return redirect("pages:confirmation_inscription")
     return render(request, "registration/signup.html", {"form": form})
+
+
+@login_required
+def confirmation_inscription(request):
+    if not request.session.pop("membership_certificate_pending", False):
+        return redirect("pages:dashboard")
+    membership = _membership_for(request.user)
+    return render(
+        request,
+        "pages/membership_certificate.html",
+        {
+            "membership": membership,
+            "member_name": request.user.get_full_name() or request.user.get_username(),
+        },
+    )
 
 
 @login_required
@@ -200,6 +389,19 @@ def dashboard(request):
     ).select_related("borrower", "library_book__book")
     if membership.role == Membership.Role.MEMBER:
         loans = loans.filter(borrower=request.user)
+    reading_entries = list(
+        ReadingShelfEntry.objects.filter(user=request.user)
+        .select_related("book")
+        .order_by("-updated_at")
+    )
+    reading_year = timezone.localdate().year
+    reading_goal = ReadingGoal.objects.filter(user=request.user, year=reading_year).first()
+    finished_this_year = ReadingShelfEntry.objects.filter(
+        user=request.user,
+        status=ReadingShelfEntry.Status.FINISHED,
+        finished_at__year=reading_year,
+    ).count()
+    goal_target = reading_goal.books_target if reading_goal else 12
     return render(
         request,
         "pages/dashboard.html",
@@ -208,8 +410,92 @@ def dashboard(request):
             "inventory": inventory,
             "loans": loans,
             "member_count": membership.library.memberships.count(),
+            "reading_entries": reading_entries,
+            "currently_reading": [entry for entry in reading_entries if entry.status == ReadingShelfEntry.Status.READING],
+            "want_to_read": [entry for entry in reading_entries if entry.status == ReadingShelfEntry.Status.WANT_TO_READ],
+            "finished_books": [
+                entry for entry in reading_entries
+                if entry.status == ReadingShelfEntry.Status.FINISHED
+            ],
+            "favorite_books": [entry for entry in reading_entries if entry.is_favorite],
+            "recently_opened": list(
+                ReadingShelfEntry.objects.filter(user=request.user, last_opened_at__isnull=False)
+                .select_related("book")
+                .order_by("-last_opened_at")[:6]
+            ),
+            "reading_goal_form": ReadingGoalForm(
+                instance=reading_goal,
+                initial=None if reading_goal else {"books_target": goal_target},
+            ),
+            "reading_goal": reading_goal,
+            "reading_year": reading_year,
+            "finished_this_year": finished_this_year,
+            "goal_progress": min(100, round(finished_this_year * 100 / goal_target)),
         },
     )
+
+
+@login_required
+@require_POST
+def mettre_a_jour_lecture(request, book_id):
+    book = get_object_or_404(Book, pk=book_id)
+    form = ReadingEntryActionForm(request.POST)
+    if not form.is_valid():
+        messages.error(request, "La mise à jour de votre bibliothèque a échoué. Vérifiez les champs et réessayez.")
+        return redirect("pages:fiche_livre", book_id=book.pk)
+
+    action = form.cleaned_data["action"]
+    if action == "remove":
+        ReadingShelfEntry.objects.filter(user=request.user, book=book).delete()
+        messages.success(request, "Ce livre a été retiré de votre bibliothèque personnelle.")
+        return redirect("pages:fiche_livre", book_id=book.pk)
+    if action == "status" and not form.cleaned_data["status"]:
+        messages.error(request, "Choisissez un statut de lecture avant de continuer.")
+        return redirect("pages:fiche_livre", book_id=book.pk)
+    if action == "progress" and form.cleaned_data["progress"] is None:
+        messages.error(request, "Saisissez une progression comprise entre 0 et 100 %.")
+        return redirect("pages:fiche_livre", book_id=book.pk)
+
+    entry, _ = ReadingShelfEntry.objects.get_or_create(user=request.user, book=book)
+    if action == "status":
+        entry.status = form.cleaned_data["status"]
+        if entry.status == ReadingShelfEntry.Status.FINISHED:
+            entry.progress = 100
+            entry.finished_at = timezone.now()
+        else:
+            entry.finished_at = None
+    elif action == "favorite":
+        entry.is_favorite = form.cleaned_data["favorite"]
+    elif action == "progress":
+        entry.progress = form.cleaned_data["progress"]
+        if entry.progress == 100:
+            entry.status = ReadingShelfEntry.Status.FINISHED
+            entry.finished_at = timezone.now()
+        elif entry.status == ReadingShelfEntry.Status.FINISHED:
+            entry.status = ReadingShelfEntry.Status.READING
+            entry.finished_at = None
+    elif action == "bookmark":
+        entry.bookmark_page = form.cleaned_data["bookmark_page"]
+    entry.save()
+    messages.success(request, "Votre bibliothèque de lecture a été mise à jour.")
+    return redirect("pages:fiche_livre", book_id=book.pk)
+
+
+@login_required
+@require_POST
+def mettre_a_jour_objectif(request):
+    year = timezone.localdate().year
+    goal = ReadingGoal.objects.filter(user=request.user, year=year).first()
+    form = ReadingGoalForm(request.POST, instance=goal)
+    if not form.is_valid():
+        messages.error(request, "Votre objectif doit être compris entre 1 et 365 livres.")
+        return redirect("pages:dashboard")
+    goal = form.save(commit=False)
+    goal.user = request.user
+    goal.year = year
+    goal.save()
+    messages.success(request, "Votre objectif de lecture annuel a été enregistré.")
+    return redirect("pages:dashboard")
 
 
 @login_required
@@ -421,6 +707,7 @@ def ajouter_livre(request):
                 title=form.cleaned_data["title"],
                 author=form.cleaned_data["author"],
                 defaults={
+                    "category": form.cleaned_data["category"],
                     "published_year": form.cleaned_data["published_year"],
                     "series": form.cleaned_data["series"],
                     "volume": form.cleaned_data["volume"],

@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block title %}L'équipe — Mnémosyne{% endblock %}
+{% block body_class %}team-page{% endblock %}
 {% block content %}
 <section class="workspace-heading">
   <div><p class="eyebrow">VOTRE BIBLIOTHÈQUE</p><h1>Gérer l'équipe</h1><p>{{ membership.library.name }} · {{ members|length }} membre{% if members|length != 1 %}s{% endif %}</p></div>

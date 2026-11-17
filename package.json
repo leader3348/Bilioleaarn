@@ -1,0 +1,14 @@
+{
+  "name": "mnemosyne-library-experience",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build:library": "esbuild pages/static/pages/library-world.js --bundle --minify --outfile=pages/static/pages/library-world.bundle.js"
+  },
+  "dependencies": {
+    "three": "^0.180.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0"
+  }
+}

@@ -1,6 +1,15 @@
 from django.contrib import admin
 
-from .models import Book, Library, LibraryBook, Loan, Membership, MembershipInvite
+from .models import (
+    Book,
+    Library,
+    LibraryBook,
+    Loan,
+    Membership,
+    MembershipInvite,
+    ReadingGoal,
+    ReadingShelfEntry,
+)
 
 
 @admin.register(Library)
@@ -12,7 +21,8 @@ class LibraryAdmin(admin.ModelAdmin):
 
 @admin.register(Book)
 class BookAdmin(admin.ModelAdmin):
-    list_display = ("title", "author", "series", "published_year")
+    list_display = ("title", "author", "category", "series", "published_year")
+    list_filter = ("category",)
     search_fields = ("title", "author", "series")
 
 
@@ -41,3 +51,17 @@ class LoanAdmin(admin.ModelAdmin):
     list_display = ("library_book", "borrower", "checked_out_at", "due_date", "returned_at")
     list_filter = ("returned_at",)
     search_fields = ("borrower__username", "library_book__book__title", "library_book__library__name")
+
+
+@admin.register(ReadingShelfEntry)
+class ReadingShelfEntryAdmin(admin.ModelAdmin):
+    list_display = ("user", "book", "status", "progress", "is_favorite", "updated_at")
+    list_filter = ("status", "is_favorite")
+    search_fields = ("user__username", "book__title", "book__author")
+
+
+@admin.register(ReadingGoal)
+class ReadingGoalAdmin(admin.ModelAdmin):
+    list_display = ("user", "year", "books_target", "updated_at")
+    list_filter = ("year",)
+    search_fields = ("user__username",)

@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="1080" viewBox="0 0 760 1080" fill="none">
+  <defs>
+    <linearGradient id="stone" x1="30" y1="70" x2="727" y2="1000" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#6d5038"/><stop offset=".48" stop-color="#382820"/><stop offset="1" stop-color="#211916"/>
+    </linearGradient>
+    <linearGradient id="oak" x1="142" y1="190" x2="620" y2="900" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#7f4b2d"/><stop offset=".23" stop-color="#4f2c20"/><stop offset=".52" stop-color="#74462b"/><stop offset=".78" stop-color="#3b241d"/><stop offset="1" stop-color="#241917"/>
+    </linearGradient>
+    <linearGradient id="oakPanel" x1="177" y1="350" x2="382" y2="814" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#78472b"/><stop offset=".5" stop-color="#45271e"/><stop offset="1" stop-color="#603923"/>
+    </linearGradient>
+    <linearGradient id="brass" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#f0d48e"/><stop offset=".3" stop-color="#956b32"/><stop offset=".68" stop-color="#d5aa5c"/><stop offset="1" stop-color="#634325"/>
+    </linearGradient>
+    <radialGradient id="doorGlow" cx="0" cy="0" r="1" gradientTransform="matrix(0 599 -362 0 381 390)" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#f4bd63" stop-opacity=".35"/><stop offset="1" stop-color="#d98432" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="floor" x1="380" y1="850" x2="380" y2="1080" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#37251d"/><stop offset="1" stop-color="#120f0e"/>
+    </linearGradient>
+    <filter id="softGlow" x="85" y="130" width="590" height="790" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse">
+      <feGaussianBlur stdDeviation="30"/>
+    </filter>
+    <pattern id="grain" width="34" height="110" patternUnits="userSpaceOnUse">
+      <path d="M5 0c-5 25 8 41 2 65s-2 33-4 45M22 0c4 19-4 36 2 54s1 38 5 56" stroke="#e1ae70" stroke-opacity=".09" stroke-width="2"/>
+      <path d="M13 0c2 30-4 42 1 74s-2 23 0 36" stroke="#160f0c" stroke-opacity=".25" stroke-width="3"/>
+    </pattern>
+  </defs>
+  <path d="M42 1036V280C42 102 172 32 380 20c208 12 338 82 338 260v756H42Z" fill="url(#stone)" stroke="url(#brass)" stroke-width="5"/>
+  <path d="M65 1011V285C65 126 186 60 380 48c194 12 315 78 315 237v726H65Z" fill="#241b17" stroke="#a78350" stroke-opacity=".55" stroke-width="2"/>
+  <path d="M86 1004V292C86 146 199 83 380 72c181 11 294 74 294 220v712H86Z" fill="url(#oak)" stroke="url(#brass)" stroke-width="9"/>
+  <path d="M86 1004V292C86 146 199 83 380 72c181 11 294 74 294 220v712H86Z" fill="url(#grain)" opacity=".8"/>
+  <path d="M97 995V294C97 158 205 96 380 84c175 12 283 74 283 210v701H97Z" fill="url(#doorGlow)"/>
+  <path d="M112 985V299C112 170 215 111 380 100c165 11 268 70 268 199v686H112Z" stroke="#d3a65c" stroke-opacity=".66" stroke-width="3"/>
+  <path d="M380 101v884" stroke="#170f0c" stroke-width="11"/>
+  <path d="M380 101v884" stroke="#d0a15b" stroke-opacity=".55" stroke-width="2"/>
+  <path d="M137 365c0-126 90-199 218-211v191c-81 10-122 52-122 123v446H137V365Z" fill="url(#oakPanel)" stroke="#d1a25b" stroke-opacity=".72" stroke-width="4"/>
+  <path d="M623 365c0-126-90-199-218-211v191c81 10 122 52 122 123v446h96V365Z" fill="url(#oakPanel)" stroke="#d1a25b" stroke-opacity=".72" stroke-width="4"/>
+  <path d="M161 365c0-105 70-169 170-184v147c-71 13-108 53-108 125v423h-62V365Z" fill="none" stroke="#261813" stroke-opacity=".9" stroke-width="8"/>
+  <path d="M599 365c0-105-70-169-170-184v147c71 13 108 53 108 125v423h62V365Z" fill="none" stroke="#261813" stroke-opacity=".9" stroke-width="8"/>
+  <path d="M168 742h151v112H168zM441 742h151v112H441zM168 554h151v133H168zM441 554h151v133H441z" fill="#3c241b" fill-opacity=".72" stroke="#c69753" stroke-opacity=".8" stroke-width="3"/>
+  <path d="m177 557 67-69 66 69v126H177V557ZM450 557l67-69 66 69v126H450V557Z" fill="#52301f" stroke="#b48548" stroke-opacity=".65" stroke-width="3"/>
+  <path d="M182 763h123v70H182zM455 763h123v70H455z" stroke="#d0a25d" stroke-opacity=".5" stroke-width="2"/>
+  <path d="M206 613h75M479 613h75M206 801h75M479 801h75" stroke="#d1a25b" stroke-opacity=".55" stroke-width="2"/>
+  <path d="M362 501c-25-37-22-77 18-99 40 22 43 62 18 99l-18 17-18-17Z" fill="#a16f34" stroke="url(#brass)" stroke-width="4"/>
+  <circle cx="380" cy="458" r="15" fill="#342018" stroke="url(#brass)" stroke-width="4"/>
+  <path d="M357 476c0-14 10-23 23-23s23 9 23 23v9c0 11-10 20-23 20s-23-9-23-20v-9Z" fill="url(#brass)"/>
+  <path d="M380 483v55m0 0c-13 0-23 10-23 23s10 23 23 23 23-10 23-23-10-23-23-23Z" stroke="#38251a" stroke-width="8"/>
+  <path d="M374 589h12v82h-12z" fill="url(#brass)"/>
+  <circle cx="380" cy="685" r="15" fill="url(#brass)" stroke="#4b321d" stroke-width="4"/>
+  <path d="M380 701v39" stroke="url(#brass)" stroke-width="7"/>
+  <path d="M105 1004h550" stroke="#ecc87f" stroke-opacity=".62" stroke-width="4"/>
+  <path d="M66 1034h628v28H66z" fill="#241916" stroke="#9d7642" stroke-width="3"/>
+  <path d="m165 1015 14 12-14 12-14-12 14-12Zm430 0 14 12-14 12-14-12 14-12Z" fill="url(#brass)"/>
+  <path d="M0 1044h760v36H0z" fill="url(#floor)"/>
+  <path d="M0 1044h760" stroke="#b48b50" stroke-opacity=".58" stroke-width="3"/>
+  <ellipse cx="380" cy="503" rx="250" ry="355" fill="#ffca72" fill-opacity=".21" filter="url(#softGlow)"/>
+</svg>

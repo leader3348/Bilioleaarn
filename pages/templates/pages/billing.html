@@ -1,11 +1,12 @@
 {% extends "base.html" %}
 {% block title %}Abonnement — Mnémosyne{% endblock %}
 {% block content %}
-<section class="catalogue-heading">
-  <p class="eyebrow">FACTURATION</p>
-  <h2>Un abonnement simple pour votre bibliothèque.</h2>
-  <p>Votre espace <strong>{{ membership.library.name }}</strong> reste privé. Gérez votre abonnement ici, sans interrompre le travail de votre équipe.</p>
-</section>
+<section class="editorial-page billing-page">
+  <header class="editorial-heading">
+    <p class="eyebrow">LE CABINET, À VOTRE MESURE</p>
+    <h1>Un abonnement simple pour votre bibliothèque.</h1>
+    <p>Votre espace <strong>{{ membership.library.name }}</strong> reste privé. Gérez votre abonnement ici, sans interrompre le travail de votre équipe.</p>
+  </header>
 {% if request.GET.success %}<p class="message message-success">Paiement reçu. Votre abonnement sera activé dès la confirmation sécurisée de Stripe.</p>{% endif %}
 {% if request.GET.canceled %}<p class="message message-info">Paiement annulé. Votre essai continue jusqu'à sa date de fin.</p>{% endif %}
 <section class="billing-card">
@@ -38,5 +39,6 @@
     <form method="post" action="{% url 'pages:creer_checkout' %}">{% csrf_token %}<button type="submit">S'abonner avec Stripe</button></form>
   {% endif %}
   <p class="billing-note">Paiement traité par Stripe. Mnémosyne ne stocke jamais les données de carte bancaire.</p>
+</section>
 </section>
 {% endblock %}

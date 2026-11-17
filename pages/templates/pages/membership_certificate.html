@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Carte de membre — Mnémosyne{% endblock %}
+{% block body_class %}certificate-page{% endblock %}
+{% block content %}
+<section class="certificate-scene" aria-labelledby="certificate-title">
+  <div class="certificate-preface">
+    <p class="eyebrow">LE GRAND CABINET · REGISTRE DES ADMISSIONS</p>
+    <h1>Une nouvelle histoire commence.</h1>
+    <p>Les portes se sont ouvertes. Voici le premier signe de votre appartenance au cabinet.</p>
+  </div>
+  <article class="membership-certificate">
+    <div class="certificate-frame" aria-hidden="true"></div>
+    <div class="certificate-content">
+      <p class="certificate-kicker">BIBLIOTHÈQUE MNÉMOSYNE · DEPUIS 1896</p>
+      <span class="certificate-emblem" aria-hidden="true">M</span>
+      <p class="certificate-label">ATTESTATION D'ADMISSION</p>
+      <h2 id="certificate-title">Carte de membre</h2>
+      <span class="certificate-flourish" aria-hidden="true">❦</span>
+      <p class="certificate-welcome">Bienvenue, <strong>{{ member_name }}</strong></p>
+      <p class="certificate-prose">parmi les gardiens des mots et des histoires.<br>Votre inscription est désormais confirmée.<br>Les portes de la bibliothèque vous sont ouvertes.</p>
+      <div class="certificate-details">
+        <span><small>LECTEUR</small><strong>{{ member_name }}</strong></span>
+        <span><small>VOTRE CABINET</small><strong>{{ membership.library.name }}</strong></span>
+        <span><small>INSCRIT LE</small><strong>{{ membership.joined_at|date:"j F Y" }}</strong></span>
+      </div>
+      <div class="certificate-signature">
+        <span>Le bibliothécaire</span>
+        <span>Conservateur du Grand Cabinet</span>
+      </div>
+      <span class="certificate-seal" aria-label="Sceau de la bibliothèque">M<br><small>MEMBRE</small></span>
+    </div>
+  </article>
+  <p class="certificate-closing">« Chaque livre ouvre une porte vers un autre monde. »</p>
+  <a class="certificate-enter" href="{% url 'pages:catalogue' %}" data-library-entry>
+    Entrer dans la bibliothèque <span aria-hidden="true">↗</span>
+  </a>
+</section>
+{% endblock %}

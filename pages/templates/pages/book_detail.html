@@ -12,7 +12,7 @@
   <div class="detail-cover-wrap">
     <div class="detail-cover-frame">
       <img class="detail-cover" src="{{ book.cover_url }}" data-fallback="{% static 'pages/images/book-cover-placeholder.svg' %}" alt="Couverture de {{ book.title }}" fetchpriority="high" decoding="async" referrerpolicy="no-referrer">
-      <span class="detail-cover-caption">{{ book.series|default:"Collection Mnémosyne" }}</span>
+      <span class="detail-cover-caption">{{ book.get_category_display }}{% if book.series %} · {{ book.series }}{% endif %}</span>
     </div>
     <span class="detail-cover-shadow" aria-hidden="true"></span>
     <span class="detail-spark detail-spark-one" aria-hidden="true">✦</span>
@@ -28,15 +28,16 @@
     <div class="detail-rule"><span>✦</span></div>
     <p class="detail-intro">
       {% if book.series %}
-        Un volume de <em>{{ book.series }}</em>, signé {{ book.author }}{% if book.published_year %} et paru en {{ book.published_year }}{% endif %}.
+        Un volume de <em>{{ book.series }}</em>, classé en {{ book.get_category_display }}, signé {{ book.author }}{% if book.published_year %} et paru en {{ book.published_year }}{% endif %}.
       {% else %}
-        Un livre de {{ book.author }}{% if book.published_year %}, paru en {{ book.published_year }}{% endif %}, conservé dans la collection fantasy de Mnémosyne.
+        Un livre de {{ book.author }}, classé en {{ book.get_category_display }}{% if book.published_year %} et paru en {{ book.published_year }}{% endif %}, conservé dans le grand cabinet de Mnémosyne.
       {% endif %}
       Explorez les éditions disponibles pour vérifier si une version à lire ou à emprunter est proposée.
     </p>
 
     <dl class="book-facts">
       <div><dt>Auteur</dt><dd>{{ book.author }}</dd></div>
+      <div><dt>Genre</dt><dd>{{ book.get_category_display }}</dd></div>
       <div><dt>Première parution</dt><dd>{% if book.published_year %}{{ book.published_year }}{% else %}Non renseignée{% endif %}</dd></div>
       <div><dt>Collection</dt><dd>{{ book.series|default:"Récits indépendants" }}</dd></div>
       <div><dt>Dans cette collection</dt><dd>Tome {{ book.volume }}</dd></div>
@@ -54,6 +55,46 @@
       <span class="detail-link-note">Consultez les éditions et options d’accès proposées par Open Library; la disponibilité varie.</span>
       {% endif %}
     </div>
+
+    {% if user.is_authenticated %}
+    <section class="personal-reading-card" aria-label="Votre suivi de lecture">
+      <div class="personal-reading-heading">
+        <div><p class="eyebrow">VOTRE EXEMPLAIRE PERSONNEL</p><h2>Garder une trace de cette lecture</h2></div>
+        {% if reading_entry %}<span class="reading-status-pill">{{ reading_entry.get_status_display }}</span>{% endif %}
+      </div>
+      <div class="personal-reading-actions">
+        {% if not reading_entry or reading_entry.status == "want_to_read" %}
+        <form method="post" action="{% url 'pages:mettre_a_jour_lecture' book.id %}">{% csrf_token %}<input type="hidden" name="action" value="status"><input type="hidden" name="status" value="reading"><button class="small-button" type="submit">Commencer la lecture</button></form>
+        {% elif reading_entry.status == "reading" %}
+        <a class="small-button reading-link-button" href="{{ book.reading_url }}" target="_blank" rel="noopener noreferrer">Continuer à lire <span aria-hidden="true">↗</span></a>
+        {% else %}
+        <span class="reading-complete-note">Lecture terminée · {{ reading_entry.finished_at|date:"j F Y" }}</span>
+        {% endif %}
+        {% if not reading_entry or reading_entry.status != "want_to_read" %}
+        <form method="post" action="{% url 'pages:mettre_a_jour_lecture' book.id %}">{% csrf_token %}<input type="hidden" name="action" value="status"><input type="hidden" name="status" value="want_to_read"><button class="secondary-button small-button" type="submit">Garder pour plus tard</button></form>
+        {% endif %}
+        {% if not reading_entry or reading_entry.status != "finished" %}
+        <form method="post" action="{% url 'pages:mettre_a_jour_lecture' book.id %}">{% csrf_token %}<input type="hidden" name="action" value="status"><input type="hidden" name="status" value="finished"><button class="secondary-button small-button" type="submit">Marquer comme terminé</button></form>
+        {% endif %}
+        <form method="post" action="{% url 'pages:mettre_a_jour_lecture' book.id %}">{% csrf_token %}<input type="hidden" name="action" value="favorite"><input type="hidden" name="favorite" value="{% if reading_entry and reading_entry.is_favorite %}false{% else %}true{% endif %}"><button class="secondary-button small-button" type="submit">{% if reading_entry and reading_entry.is_favorite %}★ Retirer des favoris{% else %}☆ Ajouter aux favoris{% endif %}</button></form>
+      </div>
+      <div class="reading-tools-grid">
+        <form method="post" action="{% url 'pages:mettre_a_jour_lecture' book.id %}">
+          {% csrf_token %}<input type="hidden" name="action" value="progress">
+          <label for="reading-progress">Votre progression (%)</label>
+          <div class="reading-tool-inline"><input id="reading-progress" name="progress" type="number" min="0" max="100" value="{% if reading_entry %}{{ reading_entry.progress }}{% else %}0{% endif %}" required><button class="secondary-button small-button" type="submit">Enregistrer</button></div>
+        </form>
+        <form method="post" action="{% url 'pages:mettre_a_jour_lecture' book.id %}">
+          {% csrf_token %}<input type="hidden" name="action" value="bookmark">
+          <label for="bookmark-page">Marque-page · numéro de page</label>
+          <div class="reading-tool-inline"><input id="bookmark-page" name="bookmark_page" type="number" min="1" value="{% if reading_entry.bookmark_page %}{{ reading_entry.bookmark_page }}{% endif %}" placeholder="Ex. 128"><button class="secondary-button small-button" type="submit">Mémoriser</button></div>
+        </form>
+      </div>
+      {% if reading_entry %}<form class="reading-remove-form" method="post" action="{% url 'pages:mettre_a_jour_lecture' book.id %}">{% csrf_token %}<input type="hidden" name="action" value="remove"><button class="reading-remove-button" type="submit">Retirer de ma bibliothèque personnelle</button></form>{% endif %}
+    </section>
+    {% else %}
+    <p class="detail-join-note"><a href="{% url 'pages:connexion' %}?next={{ request.get_full_path|urlencode }}">Connectez-vous</a> pour garder ce titre dans votre bibliothèque personnelle, enregistrer votre progression et retrouver vos favoris.</p>
+    {% endif %}
 
     {% if membership %}
       <section class="local-copy-card" aria-label="Disponibilité dans votre bibliothèque">
@@ -81,8 +122,8 @@
 {% if series_books %}
 <section class="related-books content-section">
   <div class="section-heading">
-    <div><p class="eyebrow"><span class="eyebrow-mark"></span> DANS LA MÊME SAGA</p><h2>La suite vous attend sur l’étagère.</h2></div>
-    <a class="text-link" href="{% url 'pages:catalogue' %}?serie={{ book.series|urlencode }}">Toute la saga <span aria-hidden="true">↗</span></a>
+    <div><p class="eyebrow"><span class="eyebrow-mark"></span> {% if book.series %}DANS LA MÊME SAGA{% else %}DANS LE MÊME UNIVERS{% endif %}</p><h2>{% if book.series %}La suite vous attend sur l’étagère.{% else %}D'autres livres à découvrir.{% endif %}</h2></div>
+    {% if book.series %}<a class="text-link" href="{% url 'pages:catalogue' %}?serie={{ book.series|urlencode }}">Toute la saga <span aria-hidden="true">↗</span></a>{% else %}<a class="text-link" href="{% url 'pages:catalogue' %}?genre={{ book.category }}">Tout le rayon <span aria-hidden="true">↗</span></a>{% endif %}
   </div>
   <div class="book-grid">
     {% for related in series_books %}

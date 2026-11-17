@@ -1,70 +1,179 @@
 {% extends "base.html" %}
 {% load static %}
-{% block title %}Les rayons — Mnémosyne{% endblock %}
+{% block title %}La bibliothèque immersive — Mnémosyne{% endblock %}
+{% block body_class %}digital-library-page{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'pages/library-world.css' %}">{% endblock %}
+{% block extra_scripts %}<script src="{% static 'pages/library-world.bundle.js' %}" defer></script>{% endblock %}
 {% block content %}
-<section class="catalogue-masthead">
-  <div class="catalogue-heading">
-    <p class="eyebrow"><span class="eyebrow-mark"></span> LA COLLECTION</p>
-    <h2>Chaque couverture,<br>une <em>nouvelle traversée.</em></h2>
-    <p>Un catalogue de sagas et de mondes imaginaires. Cherchez une lecture, choisissez un voyage.</p>
+<section class="library-world" id="library-world" aria-label="Bibliothèque immersive en trois dimensions">
+  <div class="world-canvas-wrap">
+    <canvas id="library-canvas" aria-label="Explorez la bibliothèque en trois dimensions. Faites glisser pour regarder autour et cliquez sur un rayon pour vous en approcher."></canvas>
+    <div class="world-vignette" aria-hidden="true"></div>
   </div>
-  <div class="catalogue-count"><span>{{ livres|length|stringformat:"02d" }}</span><small>LIVRES<br>À EXPLORER</small></div>
+
+  <form class="world-search" method="get" action="{% url 'pages:catalogue' %}" role="search">
+    <span class="world-search-mark" aria-hidden="true">⌕</span>
+    <label class="sr-only" for="world-search">Rechercher parmi les livres</label>
+    <input id="world-search" name="q" type="search" value="{{ recherche }}" placeholder="Titre, auteur, collection…" autocomplete="off">
+    {% if serie_active %}<input type="hidden" name="serie" value="{{ serie_active }}">{% endif %}
+    {% if categorie_active %}<input type="hidden" name="genre" value="{{ categorie_active }}">{% endif %}
+    {% if ordre != "titre" %}<input type="hidden" name="ordre" value="{{ ordre }}">{% endif %}
+    <button type="submit" aria-label="Lancer la recherche">↗</button>
+  </form>
+
+  <div class="world-identity">
+    <span class="world-kicker">LE GRAND CABINET · DEPUIS TOUJOURS</span>
+    <p>Un monde de livres,<br>à portée de main.</p>
+    <span class="world-title-rule" aria-hidden="true"></span>
+    <span class="world-title-detail">{{ result_count }} livres · {{ categories|length }} univers</span>
+  </div>
+
+  <div class="world-top-controls">
+    <span class="world-presence"><i aria-hidden="true"></i> LE GRAND HALL</span>
+    <button class="world-home-button" id="world-home" type="button" aria-label="Revenir à la vue du grand hall">RETOUR AU GRAND HALL <span aria-hidden="true">↗</span></button>
+  </div>
+
+  <aside class="world-book-panel" id="world-book-panel" aria-live="polite" aria-label="Informations sur le livre sélectionné" hidden>
+    <button class="world-panel-close" id="world-close-book" type="button" aria-label="Fermer le livre et retourner au rayon">×</button>
+    <p class="world-panel-kicker">UN LIVRE ENTRE VOS MAINS</p>
+    <h2 id="world-book-title"></h2>
+    <p class="world-panel-author" id="world-book-author"></p>
+    <div class="world-panel-rule"></div>
+    <dl class="world-book-facts">
+      <div><dt>Collection</dt><dd id="world-book-series"></dd></div>
+      <div><dt>Genre</dt><dd id="world-book-category"></dd></div>
+      <div><dt>Édition</dt><dd id="world-book-year"></dd></div>
+      <div><dt>Disponibilité</dt><dd id="world-book-availability"></dd></div>
+    </dl>
+    <p class="world-reader-notice">Feuilletez un spécimen de lecture interactif. Les pages affichées sont originales et ne reproduisent pas le texte de l’œuvre.</p>
+    <div class="world-panel-actions">
+      <button class="world-read-button" id="world-toggle-reading" type="button">OUVRIR LE LIVRE <span aria-hidden="true">↗</span></button>
+      <a class="world-details-link" id="world-book-detail" href="#">Fiche &amp; emprunt <span aria-hidden="true">→</span></a>
+    </div>
+  </aside>
+
+  <div class="world-page-controls" id="world-page-controls" aria-label="Navigation dans le spécimen de lecture" hidden>
+    <button id="world-page-previous" type="button" aria-label="Page précédente">←</button>
+    <span><span id="world-page-current">01</span> <i>/</i> <span>06</span></span>
+    <button id="world-page-next" type="button" aria-label="Page suivante">→</button>
+  </div>
+
+  <div class="world-interaction-tip" id="world-interaction-tip" role="status">
+    <span class="world-tip-cursor" aria-hidden="true">✦</span>
+    FAITES GLISSER POUR EXPLORER <span class="world-tip-divider">·</span> APPROCHEZ-VOUS D’UN RAYON
+  </div>
+
+  <nav class="world-alphabet" aria-label="Parcourir les collections par initiale">
+    <span class="world-alphabet-label">LES COLLECTIONS</span>
+    <div class="world-alphabet-letters" id="world-alphabet-letters"></div>
+  </nav>
+
+  <div class="world-collections-wrap">
+    <div class="world-collections" id="world-collections" aria-label="Choisir un rayon">
+      <button class="world-collection-chip world-collection-all{% if not categorie_active %} is-active{% endif %}" data-shelf="__all__" type="button">TOUS LES RAYONS <span>· {{ result_count }}</span></button>
+      {% for category in categories %}
+      <button class="world-collection-chip{% if categorie_active == category.value %} is-active{% endif %}" data-shelf="{{ category.value }}" type="button">{{ category.label }} <span>· {{ category.book_count }}</span></button>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="world-load-state" id="world-load-state" role="status">
+    <span class="world-load-glyph" aria-hidden="true">✳</span>
+    <strong>Ouvrons les portes…</strong>
+    <span>La bibliothèque se prépare pour votre visite.</span>
+  </div>
+
+  <p class="world-webgl-fallback" id="world-webgl-fallback" hidden>La scène 3D n’est pas disponible sur cet appareil. Retrouvez tous les livres dans l’index de la bibliothèque ci-dessous.</p>
+  {{ scene_books|json_script:"library-books-data" }}
 </section>
-<form class="search-bar" method="get">
-  <span class="search-icon" aria-hidden="true">⌕</span>
-  <label class="sr-only" for="catalogue-search">Rechercher un livre, un auteur ou une saga</label>
-  <input id="catalogue-search" type="search" name="q" value="{{ recherche }}" placeholder="Un titre, une saga, un auteur…">
-  {% if serie_active %}<input type="hidden" name="serie" value="{{ serie_active }}">{% endif %}
-  <button type="submit">Trouver mon livre <span aria-hidden="true">→</span></button>
-</form>
-<nav class="filter-bar" aria-label="Filtrer par série">
-  <span class="filter-label">Explorer les sagas</span>
-  <a class="filter-chip{% if not serie_active %} active{% endif %}" href="{% url 'pages:catalogue' %}{% if recherche %}?q={{ recherche|urlencode }}{% endif %}">Tous les mondes</a>
-  {% for s in series %}
-  <a class="filter-chip{% if serie_active == s %} active{% endif %}" href="{% url 'pages:catalogue' %}?serie={{ s|urlencode }}{% if recherche %}&q={{ recherche|urlencode }}{% endif %}">{{ s }}</a>
-  {% endfor %}
-</nav>
-{% if serie_active %}<p class="active-filter">Sélection : <strong>{{ serie_active }}</strong></p>{% endif %}
-<div class="catalogue-results"><span>{{ livres|length }} livre{% if livres|length != 1 %}s{% endif %} dans la sélection</span>{% if membership %}<span>Votre espace · <strong>{{ membership.library.name }}</strong></span>{% endif %}<span>Couvertures via <a href="https://openlibrary.org/" target="_blank" rel="noopener noreferrer">Open Library</a></span></div>
-<div class="book-grid catalogue-grid">
-  {% for item in livres %}
-  {% with l=item.book %}
-  <article class="book-card">
-    <a class="book-card-link" href="{% url 'pages:fiche_livre' l.id %}" aria-label="Découvrir {{ l.title }}">
-    <div class="book-cover">
-      <img src="{{ l.cover_url }}" data-fallback="{% static 'pages/images/book-cover-placeholder.svg' %}" alt="Couverture de {{ l.title }}" loading="lazy" decoding="async" referrerpolicy="no-referrer">
-      <span class="cover-ornament" aria-hidden="true">✦</span>
-      {% if l.published_year %}<span class="cover-year">{{ l.published_year }}</span>{% endif %}
-      <small>{{ l.series|default:"Fantasy" }}</small>
+
+<section class="catalogue-archive" id="book-archive" aria-labelledby="archive-title">
+  <div class="archive-heading">
+    <div>
+      <p class="eyebrow">LE REGISTRE DU CABINET</p>
+      <h1 id="archive-title">Tous les livres, page après page.</h1>
+      <p>Parcourez les éditions du grand cabinet, retrouvez leur fiche et vérifiez les exemplaires de votre bibliothèque.</p>
     </div>
-    <div class="book-info">
-      <p class="book-series">{{ l.series|default:"Fantasy" }} <span>·</span> Tome {{ l.volume }}</p>
-      <h3>{{ l.title }}</h3>
-      <p class="book-author">{{ l.author }}</p>
-    </div>
-    </a>
-    <div class="book-actions">
-      {% if membership %}
-        {% if item.inventory %}
-          <p class="availability">{% if item.inventory.available_copies %}<span class="availability-dot"></span>{{ item.inventory.available_copies }} disponible{% if item.inventory.available_copies != 1 %}s{% endif %} / {{ item.inventory.total_copies }}{% else %}Aucun exemplaire disponible{% endif %}</p>
-          {% if item.inventory.available_copies %}
-          <form method="post" action="{% url 'pages:emprunter' item.inventory.id %}">
-            {% csrf_token %}
-            <button class="small-button" type="submit">Emprunter</button>
-          </form>
+    <a class="archive-return" href="#library-world">RETOURNER DANS LE GRAND HALL <span aria-hidden="true">↑</span></a>
+  </div>
+
+  <form class="search-bar" method="get">
+    <span class="search-icon" aria-hidden="true">⌕</span>
+    <label class="sr-only" for="catalogue-search">Rechercher un livre, un auteur ou une saga</label>
+    <input id="catalogue-search" type="search" name="q" value="{{ recherche }}" placeholder="Un titre, une saga, un auteur…">
+    {% if serie_active %}<input type="hidden" name="serie" value="{{ serie_active }}">{% endif %}
+    {% if categorie_active %}<input type="hidden" name="genre" value="{{ categorie_active }}">{% endif %}
+    <label class="sr-only" for="catalogue-order">Trier les livres</label>
+    <select id="catalogue-order" name="ordre" aria-label="Trier les livres">
+      <option value="titre"{% if ordre == "titre" %} selected{% endif %}>Titre A–Z</option>
+      <option value="auteur"{% if ordre == "auteur" %} selected{% endif %}>Auteur A–Z</option>
+    </select>
+    <button type="submit">Rechercher <span aria-hidden="true">→</span></button>
+  </form>
+
+  <details class="archive-filter-panel" open>
+    <summary>Explorer par genre ou collection <span aria-hidden="true">⌄</span></summary>
+    <nav class="archive-shelves" aria-label="Filtrer le catalogue par collection">
+      <a class="filter-chip{% if not serie_active and not categorie_active %} active{% endif %}" href="{% url 'pages:catalogue' %}{% if recherche %}?q={{ recherche|urlencode }}{% endif %}">Tous les mondes</a>
+      {% for category in categories %}
+      <a class="filter-chip{% if categorie_active == category.value %} active{% endif %}" href="{% url 'pages:catalogue' %}?genre={{ category.value }}{% if recherche %}&amp;q={{ recherche|urlencode }}{% endif %}">{{ category.label }} · {{ category.book_count }}</a>
+      {% endfor %}
+      <span class="archive-filter-separator">COLLECTIONS</span>
+      {% for s in series %}
+      <a class="filter-chip{% if serie_active == s.series %} active{% endif %}" href="{% url 'pages:catalogue' %}?serie={{ s.series|urlencode }}{% if recherche %}&amp;q={{ recherche|urlencode }}{% endif %}">{{ s.series }} · {{ s.book_count }}</a>
+      {% endfor %}
+    </nav>
+  </details>
+  {% if serie_active %}<p class="active-filter">Rayon sélectionné : <strong>{{ serie_active }}</strong></p>{% elif categorie_active %}<p class="active-filter">Univers sélectionné : <strong>{% for category in categories %}{% if categorie_active == category.value %}{{ category.label }}{% endif %}{% endfor %}</strong></p>{% endif %}
+  <div class="catalogue-results" id="books"><span data-results-count data-total-results="{{ result_count }}">{{ result_count }} livre{% if result_count != 1 %}s{% endif %} dans le registre</span>{% if membership %}<span>Votre espace · <strong>{{ membership.library.name }}</strong></span>{% endif %}<span>Couvertures via <a href="https://openlibrary.org/" target="_blank" rel="noopener noreferrer">Open Library</a></span></div>
+
+  <div class="book-grid catalogue-grid">
+    {% for item in livres %}
+    {% with l=item.book %}
+    <article class="book-card" data-book-search="{{ l.title }} {{ l.author }} {{ l.get_category_display }} {{ l.series }}">
+      <a class="book-card-link" href="{% url 'pages:fiche_livre' l.id %}" aria-label="Découvrir {{ l.title }}">
+        <div class="book-cover">
+          <img src="{{ l.cover_url }}" data-fallback="{% static 'pages/images/book-cover-placeholder.svg' %}" alt="Couverture de {{ l.title }}" loading="lazy" decoding="async" referrerpolicy="no-referrer">
+          <span class="cover-ornament" aria-hidden="true">✦</span>
+          {% if l.published_year %}<span class="cover-year">{{ l.published_year }}</span>{% endif %}
+          <small>{{ l.get_category_display }}{% if l.series %} · {{ l.series }}{% endif %}</small>
+        </div>
+        <div class="book-info">
+          <p class="book-series">{{ l.get_category_display }}{% if l.series %} <span>·</span> {{ l.series }}{% endif %}</p>
+          <h2>{{ l.title }}</h2>
+          <p class="book-author">{{ l.author }}</p>
+        </div>
+      </a>
+      <div class="book-actions">
+        {% if membership %}
+          {% if item.inventory %}
+            <p class="availability">{% if item.inventory.available_copies %}<span class="availability-dot"></span>{{ item.inventory.available_copies }} disponible{% if item.inventory.available_copies != 1 %}s{% endif %} / {{ item.inventory.total_copies }}{% else %}Aucun exemplaire disponible{% endif %}</p>
+            {% if item.inventory.available_copies %}
+            <form method="post" action="{% url 'pages:emprunter' item.inventory.id %}">
+              {% csrf_token %}
+              <button class="small-button" type="submit">Emprunter</button>
+            </form>
+            {% endif %}
+          {% else %}
+            <p class="availability">Pas encore dans votre bibliothèque.</p>
           {% endif %}
         {% else %}
-          <p class="availability">Pas encore dans votre bibliothèque.</p>
+          <p class="availability"><a href="{% url 'pages:inscription' %}">Créez un espace bibliothèque</a> pour voir ses exemplaires.</p>
         {% endif %}
-      {% else %}
-        <p class="availability"><a href="{% url 'pages:inscription' %}">Créez un espace bibliothèque</a> pour voir ses exemplaires.</p>
-      {% endif %}
-      <a class="detail-link" href="{% url 'pages:fiche_livre' l.id %}">Lire la fiche <span aria-hidden="true">↗</span></a>
-    </div>
-  </article>
-  {% endwith %}
-  {% empty %}
-  <p class="empty-state">Aucun livre ne correspond à votre recherche.</p>
-  {% endfor %}
-</div>
+        <a class="detail-link" href="{% url 'pages:fiche_livre' l.id %}">Lire la fiche <span aria-hidden="true">↗</span></a>
+      </div>
+    </article>
+    {% endwith %}
+    {% empty %}
+    <p class="empty-state">Aucun livre ne correspond à votre recherche.</p>
+    {% endfor %}
+  </div>
+  {% if page_obj.paginator.num_pages > 1 %}
+  <nav class="catalogue-pagination" aria-label="Pages du catalogue">
+    {% if page_obj.has_previous %}<a href="{% querystring page=page_obj.previous_page_number %}" rel="prev">← Précédent</a>{% else %}<span aria-disabled="true">← Précédent</span>{% endif %}
+    <span>Page <strong>{{ page_obj.number }}</strong> sur {{ page_obj.paginator.num_pages }}</span>
+    {% if page_obj.has_next %}<a href="{% querystring page=page_obj.next_page_number %}" rel="next">Suivante →</a>{% else %}<span aria-disabled="true">Suivante →</span>{% endif %}
+  </nav>
+  {% endif %}
+</section>
 {% endblock %}

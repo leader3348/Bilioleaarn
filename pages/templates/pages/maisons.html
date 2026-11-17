@@ -1,15 +1,22 @@
 {% extends "base.html" %}
 {% block title %}Les maisons — Mnémosyne{% endblock %}
 {% block content %}
-<h2>Les grandes maisons de Westeros</h2>
-<p>Un petit aperçu de l'univers de <em>A Song of Ice and Fire</em>.</p>
-<div class="cartes">
-  {% for m in maisons %}
-  <article class="carte">
-    <h3>Maison {{ m.nom }}</h3>
-    <p><em>« {{ m.devise }} »</em></p>
-    <p>Siège : {{ m.siege }}<br>Région : {{ m.region }}</p>
-  </article>
-  {% endfor %}
-</div>
+<section class="editorial-page houses-page">
+  <header class="editorial-heading">
+    <p class="eyebrow">ATLAS DES MONDES</p>
+    <h1>Les grandes maisons de Westeros.</h1>
+    <p>Un petit aperçu de l'univers de <em>A Song of Ice and Fire</em>, rangé au fil des bannières.</p>
+  </header>
+  <div class="house-grid">
+    {% for m in maisons %}
+    <article class="house-card">
+      <span class="house-index">0{{ forloop.counter }}</span>
+      <span class="house-sigil" aria-hidden="true">✦</span>
+      <h2>Maison {{ m.nom }}</h2>
+      <p class="house-motto">« {{ m.devise }} »</p>
+      <dl><div><dt>Siège</dt><dd>{{ m.siege }}</dd></div><div><dt>Région</dt><dd>{{ m.region }}</dd></div></dl>
+    </article>
+    {% endfor %}
+  </div>
+</section>
 {% endblock %}
